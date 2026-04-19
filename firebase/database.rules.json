@@ -1,0 +1,58 @@
+{
+  "rules": {
+    // ═══════════════════════════════════════════
+    // AURA Social – Realtime Database Rules
+    // Dùng cho: Chat messages, Presence, Typing
+    // ═══════════════════════════════════════════
+
+    "messages": {
+      "$conversationId": {
+        // Phải đăng nhập mới đọc/ghi tin nhắn
+        ".read": "auth != null",
+        ".write": "auth != null",
+
+        "$messageId": {
+          // Validate message structure
+          ".validate": "newData.hasChildren(['senderId', 'text', 'timestamp'])",
+
+          "senderId": {
+            // senderId phải là chính người gửi
+            ".validate": "newData.val() === auth.uid"
+          }
+        }
+      }
+    },
+
+    "presence": {
+      "$userId": {
+        // Ai cũng đọc được status online/offline
+        ".read": "auth != null",
+        // Chỉ chính chủ mới cập nhật presence
+        ".write": "auth != null && auth.uid === $userId"
+      }
+    },
+
+    "typing": {
+      "$conversationId": {
+        "$userId": {
+          // Ai cũng đọc được ai đang typing
+          ".read": "auth != null",
+          // Chỉ chính chủ mới set typing status
+          ".write": "auth != null && auth.uid === $userId"
+        }
+      }
+    },
+
+    "wave_messages": {
+      "$waveId": {
+        // Phải đăng nhập mới đọc/ghi wave messages
+        ".read": "auth != null",
+        ".write": "auth != null",
+
+        "$messageId": {
+          ".validate": "newData.hasChildren(['senderId', 'text', 'timestamp'])"
+        }
+      }
+    }
+  }
+}

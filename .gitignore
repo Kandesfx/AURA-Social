@@ -122,8 +122,8 @@ $RECYCLE.BIN/
 *.cert
 *-service-account.json
 *service_account*.json
-google-services.json
-GoogleService-Info.plist
+# google-services.json         ← KHÔNG ignore (team cần share)
+# GoogleService-Info.plist      ← KHÔNG ignore (team cần share)
 .env
 .env.*
 !.env.example

@@ -19,7 +19,7 @@ dependencies:
   firebase_auth: ^5.2.0
   cloud_firestore: ^5.4.0
   firebase_database: ^11.1.0
-  firebase_storage: ^12.3.0
+  firebase_storage: ^12.3.0         # REMOVED → dùng Cloudflare R2 thay thế
   firebase_messaging: ^15.1.0
   firebase_analytics: ^11.3.0
   firebase_crashlytics: ^4.1.0
@@ -318,7 +318,7 @@ firebase/
 ├── firestore.rules                      # Firestore Security Rules
 ├── firestore.indexes.json               # Composite indexes
 ├── database.rules.json                  # RTDB Security Rules
-├── storage.rules                        # Cloud Storage rules
+├── storage.rules                        # (KHÔNG DÙNG – dùng Cloudflare R2)
 │
 └── functions/
     ├── main.py                          # All Cloud Function triggers

@@ -22,7 +22,7 @@
 | # | Task | Output |
 |---|---|---|
 | 1 | Tạo Firebase project trên console | Project ID + config files |
-| 2 | Bật Auth (Google, Email), Firestore, RTDB, Storage, FCM | All services enabled |
+| 2 | Bật Auth (Google, Email), Firestore, RTDB, FCM | All services enabled |
 | 3 | Tải `google-services.json` + `GoogleService-Info.plist` | Config files cho Flutter |
 | 4 | Tạo Service Account key | `service-account.json` cho FastAPI |
 | 5 | Tạo Flutter project từ Android Studio | Base Flutter project |
@@ -93,7 +93,7 @@ AURA-Social/
 | 11 | Firestore: Tạo subcollection `users/{uid}/feed_cache` | `firestore.rules` | 🟡 |
 | 12 | Firestore: Composite indexes | `firestore.indexes.json` | 🔴 |
 | 13 | RTDB: Schema `messages`, `presence`, `typing`, `wave_messages` | `database.rules.json` | 🔴 |
-| 14 | Storage: Upload rules (avatar, post media) | `storage.rules` | 🟡 |
+| 14 | Cloudflare R2: Tạo bucket + CORS config (avatar, post media) | `fastapi-backend/` | 🟡 |
 | 15 | CF: `on_user_created` → init user doc + emotion profile | `functions/main.py` | 🔴 |
 | 16 | CF: `on_user_deleted` → GDPR cascade delete | `functions/main.py` | 🔴 |
 | 17 | CF: `on_new_post` → call FastAPI `/content/analyze` | `functions/main.py` | 🔴 |

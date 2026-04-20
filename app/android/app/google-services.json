@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "736756685022",
+    "firebase_url": "https://aura-social-vn-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "aura-social-vn",
+    "storage_bucket": "aura-social-vn.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:736756685022:android:b74a07787ab9a449250a4f",
+        "android_client_info": {
+          "package_name": "com.aurasocial.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "736756685022-l9ti22fp694amc23p4k0bra62pc0bhup.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPreZzsIp-0uSOmyyZmI0Egx68zZpr-Fs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "736756685022-l9ti22fp694amc23p4k0bra62pc0bhup.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,73 @@
+name: app
+description: "AURA Social – Ambient Emotional Intelligence Social Platform"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI / Icons
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+  flutter_svg: ^2.0.17
+  lottie: ^3.3.1
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # HTTP
+  dio: ^5.7.0
+
+  # Firebase (add later when firebase project is ready)
+  # firebase_core: ^3.3.0
+  # firebase_auth: ^5.2.0
+  # cloud_firestore: ^5.4.0
+  # firebase_database: ^11.1.0
+  # firebase_storage: ^12.3.0
+  # firebase_messaging: ^15.1.0
+
+  # Charts
+  fl_chart: ^0.70.2
+
+  # Utils
+  uuid: ^4.5.1
+  timeago: ^3.7.0
+  intl: ^0.20.2
+  shared_preferences: ^2.5.3
+  image_picker: ^1.1.2
+  firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  cloud_firestore: ^6.3.0
+  firebase_database: ^12.3.0
+  firebase_messaging: ^16.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+# Auto-generate app icons cho Android + iOS từ 1 ảnh
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/aura_icon.png"
+  adaptive_icon_background: "#0A0A0F"
+  adaptive_icon_foreground: "assets/images/aura_icon.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/

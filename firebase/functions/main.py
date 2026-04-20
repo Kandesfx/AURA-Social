@@ -15,11 +15,15 @@ from firebase_admin import initialize_app, firestore, auth, messaging
 
 # Initialize Firebase Admin
 app = initialize_app()
-db = firestore.client()
 
 # FastAPI backend URL (thay bằng Cloud Run URL khi deploy)
 FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://localhost:8080")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
+
+
+def get_db():
+    """Lazy-init Firestore client (tránh lỗi credentials khi CLI analyze)."""
+    return firestore.client()
 
 
 # ════════════════════════════════════════════════════
@@ -59,7 +63,7 @@ def on_user_created(req: https_fn.CallableRequest):
         "lastSeen": firestore.SERVER_TIMESTAMP,
     }
 
-    db.collection("users").document(uid).set(user_data)
+    get_db().collection("users").document(uid).set(user_data)
 
     # Tạo emotion profile mặc định (neutral)
     default_emotion = {
@@ -80,7 +84,7 @@ def on_user_created(req: https_fn.CallableRequest):
         "updateCount": 0,
     }
 
-    db.collection("users").document(uid) \
+    get_db().collection("users").document(uid) \
       .collection("emotion_profile").document("current") \
       .set(default_emotion)
 
@@ -126,7 +130,7 @@ def on_new_post(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
             analysis = response.json()
 
             # Cập nhật post với emotion data từ AI
-            db.collection("posts").document(post_id).update({
+            get_db().collection("posts").document(post_id).update({
                 "emotionVector": analysis.get("emotion_vector", {}),
                 "sentimentScore": analysis.get("sentiment_score", 0),
                 "isAnalyzed": True,
@@ -171,7 +175,7 @@ def on_conversation_updated(event: firestore_fn.Event[firestore_fn.Change[firest
             continue
 
         # Lấy FCM token của người nhận
-        user_doc = db.collection("users").document(member_id).get()
+        user_doc = get_db().collection("users").document(member_id).get()
         if not user_doc.exists:
             continue
 
@@ -181,7 +185,7 @@ def on_conversation_updated(event: firestore_fn.Event[firestore_fn.Change[firest
             continue
 
         # Lấy tên người gửi
-        sender_doc = db.collection("users").document(sender_id).get()
+        sender_doc = get_db().collection("users").document(sender_id).get()
         sender_name = sender_doc.to_dict().get("displayName", "Someone") if sender_doc.exists else "Someone"
 
         # Gửi push notification
@@ -216,17 +220,17 @@ def on_follow(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
     follower_id = event.params["followerId"]
 
     # Tăng follower count cho user được follow
-    db.collection("users").document(user_id).update({
+    get_db().collection("users").document(user_id).update({
         "followersCount": firestore.Increment(1)
     })
 
     # Tăng following count cho người follow
-    db.collection("users").document(follower_id).update({
+    get_db().collection("users").document(follower_id).update({
         "followingCount": firestore.Increment(1)
     })
 
     # Tạo notification
-    db.collection("notifications").add({
+    get_db().collection("notifications").add({
         "recipientId": user_id,
         "senderId": follower_id,
         "type": "follow",

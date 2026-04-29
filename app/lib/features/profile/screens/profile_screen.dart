@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
@@ -16,7 +17,7 @@ class ProfileScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined, size: 22),
-            onPressed: () {},
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),
@@ -110,7 +111,9 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // ── Emotional Compass Card ──
-            Container(
+            GestureDetector(
+              onTap: () => context.push('/compass'),
+              child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -185,6 +188,7 @@ class ProfileScreen extends StatelessWidget {
               ),
             ).animate().fadeIn(delay: 200.ms, duration: 400.ms)
              .slideX(begin: 0.03),
+            ),
 
             const SizedBox(height: 24),
 

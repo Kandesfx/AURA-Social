@@ -1,12 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/screens/splash_screen.dart';
+import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/register_screen.dart';
 import '../../features/feed/screens/feed_screen.dart';
 import '../../features/soul_connect/screens/soul_connect_screen.dart';
 import '../../features/post/screens/create_post_screen.dart';
 import '../../features/chat/screens/conversations_list_screen.dart';
 import '../../features/chat/screens/chat_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/notifications/screens/notifications_screen.dart';
+import '../../features/settings/screens/settings_screen.dart';
+import '../../features/settings/screens/ai_settings_screen.dart';
+import '../../features/settings/screens/privacy_settings_screen.dart';
+import '../../features/compass/screens/emotional_compass_screen.dart';
 import '../../shared/widgets/main_scaffold.dart';
 
 /// AURA Social – Router Configuration
@@ -20,6 +27,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) => const SplashScreen(),
+      ),
+
+      // ── Login Screen ──
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+
+      // ── Register Screen ──
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
       ),
 
       // ── Main Shell (Bottom Navigation) ──
@@ -57,6 +76,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/create-post',
         builder: (context, state) => const CreatePostScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/ai',
+        builder: (context, state) => const AISettingsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/privacy',
+        builder: (context, state) => const PrivacySettingsScreen(),
+      ),
+      GoRoute(
+        path: '/compass',
+        builder: (context, state) => const EmotionalCompassScreen(),
       ),
       GoRoute(
         path: '/chat/:conversationId',

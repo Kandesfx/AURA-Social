@@ -1,0 +1,193 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════
+// AURA Social – Firestore Security Rules
+// ═══════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ──
+    
+    // Kiểm tra user đã đăng nhập
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Kiểm tra user là chính chủ
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Kiểm tra field không bị thay đổi
+    function isUnchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    // ════════════════════════════════════════════
+    // USERS
+    // ════════════════════════════════════════════
+    match /users/{userId} {
+      // Ai cũng đọc được profile public
+      allow read: if isAuthenticated();
+
+      // Chỉ chính chủ mới tạo/sửa profile của mình
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+
+      // Không ai được xóa user (chỉ Cloud Function xử lý)
+      allow delete: if false;
+
+      // ── Subcollection: Emotion Profile ──
+      match /emotion_profile/{docId} {
+        // Chỉ chính chủ đọc emotion profile của mình
+        allow read: if isOwner(userId);
+        // Chỉ server (Cloud Functions) mới ghi
+        allow write: if false;
+      }
+
+      // ── Subcollection: Behavioral Events ──
+      match /behavioral_events/{eventId} {
+        // Chỉ chính chủ đọc/ghi events của mình
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── Subcollection: Feed Cache ──
+      match /feed_cache/{cacheId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Chỉ server ghi
+      }
+    }
+
+    // ════════════════════════════════════════════
+    // POSTS
+    // ════════════════════════════════════════════
+    match /posts/{postId} {
+      // Ai đăng nhập cũng đọc được
+      allow read: if isAuthenticated();
+
+      // Tạo post: phải login, authorId phải là mình
+      allow create: if isAuthenticated()
+                    && request.resource.data.authorId == request.auth.uid;
+
+      // Sửa post: chỉ tác giả, không được đổi authorId
+      allow update: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid
+                    && isUnchanged('authorId');
+
+      // Xóa post: chỉ tác giả
+      allow delete: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid;
+    }
+
+    // ════════════════════════════════════════════
+    // COMMENTS
+    // ════════════════════════════════════════════
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+                    && request.resource.data.authorId == request.auth.uid;
+
+      allow update: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid;
+
+      allow delete: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid;
+    }
+
+    // ════════════════════════════════════════════
+    // CONVERSATIONS (Chat metadata)
+    // ════════════════════════════════════════════
+    match /conversations/{conversationId} {
+      // Chỉ thành viên cuộc trò chuyện mới đọc được
+      allow read: if isAuthenticated()
+                  && request.auth.uid in resource.data.memberIds;
+
+      // Tạo conversation: phải là thành viên
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.memberIds;
+
+      // Cập nhật: chỉ thành viên (lastMessage, updatedAt)
+      allow update: if isAuthenticated()
+                    && request.auth.uid in resource.data.memberIds;
+
+      allow delete: if false;
+    }
+
+    // ════════════════════════════════════════════
+    // SOUL CONNECTIONS
+    // ════════════════════════════════════════════
+    match /soul_connections/{connectionId} {
+      // Chỉ 2 người trong connection mới đọc được
+      allow read: if isAuthenticated()
+                  && (request.auth.uid == resource.data.userId1
+                      || request.auth.uid == resource.data.userId2);
+
+      // Tạo: phải là 1 trong 2 user
+      allow create: if isAuthenticated()
+                    && (request.auth.uid == request.resource.data.userId1
+                        || request.auth.uid == request.resource.data.userId2);
+
+      // Cập nhật status (accept/reject)
+      allow update: if isAuthenticated()
+                    && (request.auth.uid == resource.data.userId1
+                        || request.auth.uid == resource.data.userId2);
+
+      allow delete: if false;
+    }
+
+    // ════════════════════════════════════════════
+    // WAVES (Emotional Waves / Groups)
+    // ════════════════════════════════════════════
+    match /waves/{waveId} {
+      // Ai cũng đọc được waves public
+      allow read: if isAuthenticated();
+
+      // Chỉ server tạo waves (qua Cloud Functions)
+      allow create: if false;
+      allow update: if isAuthenticated(); // Members join/leave
+      allow delete: if false;
+
+      // ── Subcollection: Wave Members ──
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated()
+                     && request.auth.uid == memberId;
+      }
+    }
+
+    // ════════════════════════════════════════════
+    // NOTIFICATIONS
+    // ════════════════════════════════════════════
+    match /notifications/{notificationId} {
+      // Chỉ người nhận đọc được
+      allow read: if isAuthenticated()
+                  && resource.data.recipientId == request.auth.uid;
+
+      // Chỉ server tạo notifications
+      allow create: if false;
+
+      // Đánh dấu đã đọc
+      allow update: if isAuthenticated()
+                    && resource.data.recipientId == request.auth.uid;
+
+      allow delete: if isAuthenticated()
+                    && resource.data.recipientId == request.auth.uid;
+    }
+
+    // ════════════════════════════════════════════
+    // REPORTS (Báo cáo vi phạm)
+    // ════════════════════════════════════════════
+    match /reports/{reportId} {
+      // Không ai đọc được (chỉ admin)
+      allow read: if false;
+
+      // Ai cũng tạo được report
+      allow create: if isAuthenticated()
+                    && request.resource.data.reporterId == request.auth.uid;
+
+      allow update, delete: if false;
+    }
+  }
+}

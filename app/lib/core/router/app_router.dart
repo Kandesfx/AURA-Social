@@ -5,6 +5,7 @@ import '../../features/feed/screens/feed_screen.dart';
 import '../../features/soul_connect/screens/soul_connect_screen.dart';
 import '../../features/post/screens/create_post_screen.dart';
 import '../../features/chat/screens/conversations_list_screen.dart';
+import '../../features/chat/screens/chat_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../shared/widgets/main_scaffold.dart';
 
@@ -56,6 +57,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/create-post',
         builder: (context, state) => const CreatePostScreen(),
+      ),
+      GoRoute(
+        path: '/chat/:conversationId',
+        builder: (context, state) {
+          final conversationId = state.pathParameters['conversationId']!;
+          return ChatScreen(conversationId: conversationId);
+        },
       ),
     ],
   );

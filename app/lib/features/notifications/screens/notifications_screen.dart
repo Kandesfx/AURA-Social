@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/notification_tile.dart';
 
@@ -41,11 +42,11 @@ class NotificationsScreen extends ConsumerWidget {
   }
 
   Widget _buildLoading() {
-    return Center(
-      child: CircularProgressIndicator(
-        strokeWidth: 3,
-        valueColor: AlwaysStoppedAnimation(AuraColors.primary.withValues(alpha: 0.7)),
-      ),
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: 5,
+      itemBuilder: (context, index) => const ShimmerNotificationTile(),
     );
   }
 

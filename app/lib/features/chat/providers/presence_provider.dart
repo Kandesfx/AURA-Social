@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../services/chat_service.dart';
+import 'chat_provider.dart';
 
 /// AURA Social – Presence Provider
 ///
-/// Quản lý trạng thái online/offline và typing indicator.
-/// Mock data – khi backend sẵn sàng swap sang RTDB stream.
+/// Person 3: Quản lý trạng thái online/offline và typing indicator.
+/// Kết nối RTDB thông qua ChatService.
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MODELS
@@ -36,73 +38,87 @@ class TypingStatus {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MOCK DATA
+// PRESENCE PROVIDERS (RTDB Streams)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-final _mockPresence = <String, UserPresence>{
-  'user-minh-anh': UserPresence(
-    isOnline: true,
-    lastSeen: DateTime.now(),
-    activeScreen: 'chat',
-  ),
-  'user-hoang-dung': UserPresence(
-    isOnline: true,
-    lastSeen: DateTime.now(),
-    activeScreen: 'feed',
-  ),
-  'user-thu-ha': UserPresence(
-    isOnline: false,
-    lastSeen: DateTime.now().subtract(const Duration(hours: 3)),
-  ),
-  'user-duc-anh': UserPresence(
-    isOnline: false,
-    lastSeen: DateTime.now().subtract(const Duration(hours: 8)),
-  ),
-  'user-lan-phuong': UserPresence(
-    isOnline: true,
-    lastSeen: DateTime.now(),
-    activeScreen: 'feed',
-  ),
-};
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// PROVIDERS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-/// Online/Offline status cho 1 user
-final userPresenceProvider =
-    Provider.family<UserPresence, String>((ref, userId) {
-  return _mockPresence[userId] ?? const UserPresence();
+/// Stream presence (online/offline) cho 1 user từ RTDB.
+final userPresenceStreamProvider =
+    StreamProvider.family<UserPresence, String>((ref, userId) {
+  final chatService = ref.watch(chatServiceProvider);
+  return chatService.getPresenceStream(userId);
 });
 
-/// Typing status cho 1 conversation
-/// Dùng StateNotifier để simulate typing on/off
-final typingStatusProvider = StateNotifierProvider.family<
-    TypingStatusNotifier, TypingStatus, String>(
-  (ref, conversationId) => TypingStatusNotifier(),
-);
+/// Wrapper tương thích code cũ – trả UserPresence synchronous.
+final userPresenceProvider =
+    Provider.family<UserPresence, String>((ref, userId) {
+  final asyncPresence = ref.watch(userPresenceStreamProvider(userId));
+  return asyncPresence.when(
+    data: (presence) => presence,
+    loading: () => const UserPresence(),
+    error: (_, _) => const UserPresence(),
+  );
+});
 
-class TypingStatusNotifier extends StateNotifier<TypingStatus> {
-  TypingStatusNotifier() : super(const TypingStatus());
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TYPING PROVIDERS (RTDB Streams)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  /// Simulate đối phương đang gõ
-  void setTyping({
-    required String userId,
-    required String userName,
-  }) {
-    state = TypingStatus(
-      isTyping: true,
-      userId: userId,
-      userName: userName,
-      timestamp: DateTime.now(),
-    );
-  }
+/// Stream typing status cho 1 conversation từ RTDB.
+final typingStatusStreamProvider =
+    StreamProvider.family<TypingStatus, String>((ref, conversationId) {
+  final chatService = ref.watch(chatServiceProvider);
+  final currentUserId = ref.watch(currentUserIdProvider);
+  return chatService.getTypingStream(conversationId, currentUserId);
+});
 
-  /// Ngưng gõ
-  void clearTyping() {
-    state = const TypingStatus();
+/// Wrapper tương thích code cũ – trả TypingStatus synchronous.
+final typingStatusProvider =
+    Provider.family<TypingStatus, String>((ref, conversationId) {
+  final asyncTyping =
+      ref.watch(typingStatusStreamProvider(conversationId));
+  return asyncTyping.when(
+    data: (status) => status,
+    loading: () => const TypingStatus(),
+    error: (_, _) => const TypingStatus(),
+  );
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MY PRESENCE INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Init presence cho current user.
+/// Gọi 1 lần khi app start (trong main.dart hoặc app.dart).
+final myPresenceProvider = FutureProvider<void>((ref) async {
+  final chatService = ref.watch(chatServiceProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId.isEmpty) return;
+
+  await chatService.setOnline();
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TYPING ACTIONS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Action: set typing status.
+final typingActionProvider = Provider<TypingAction>((ref) {
+  return TypingAction(ref);
+});
+
+class TypingAction {
+  TypingAction(this._ref);
+  final Ref _ref;
+
+  Future<void> setTyping(String conversationId, bool isTyping) async {
+    final chatService = _ref.read(chatServiceProvider);
+    await chatService.setTypingStatus(conversationId, isTyping);
   }
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /// Format last seen text
 String formatLastSeen(DateTime? lastSeen) {

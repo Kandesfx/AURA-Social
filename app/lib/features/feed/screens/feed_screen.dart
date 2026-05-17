@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../services/feed_service.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 import '../widgets/post_card.dart';
 
 /// AURA Social – Feed Screen
 ///
 /// Màn hình chính với 2 tab: For You (AI-curated) và Following (chronological).
+/// Enhanced by Person 4, Task #19: pull-to-refresh, infinite scroll, shimmer loading.
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
@@ -136,7 +139,7 @@ class _FeedScreenState extends State<FeedScreen>
         ],
         body: TabBarView(
           controller: _tabController,
-          children: [
+          children: const [
             _ForYouTab(),
             _FollowingTab(),
           ],
@@ -147,90 +150,265 @@ class _FeedScreenState extends State<FeedScreen>
 }
 
 /// Tab For You – AI curated feed
-class _ForYouTab extends StatelessWidget {
-  // Mock data cho demo
-  final List<Map<String, dynamic>> _mockPosts = [
-    {
-      'id': '1',
-      'userName': 'Minh Anh',
-      'userHandle': '@minhanh',
-      'timeAgo': '2h',
-      'content': 'Hôm nay tôi cảm thấy thật tuyệt vời khi được nhìn thấy hoàng hôn trên biển. Có ai cũng thích ngắm hoàng hôn không? 🌅',
-      'hasImage': true,
-      'imageUrl': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
-      'emotionVector': {'joy': 0.45, 'trust': 0.2, 'anticipation': 0.15, 'surprise': 0.1, 'sadness': 0.05, 'fear': 0.02, 'anger': 0.01, 'disgust': 0.02},
-      'reactions': {'joy': 24, 'trust': 8, 'anticipation': 5, 'surprise': 3, 'sadness': 0, 'fear': 0, 'anger': 0, 'disgust': 0},
-      'commentCount': 12,
-    },
-    {
-      'id': '2',
-      'userName': 'Hoàng Dũng',
-      'userHandle': '@hoangdung',
-      'timeAgo': '4h',
-      'content': 'Just shipped a new feature at work! The feeling when your code compiles without errors on the first try 🚀\n\n#coding #developer #happyday',
-      'hasImage': false,
-      'emotionVector': {'joy': 0.35, 'anticipation': 0.3, 'trust': 0.15, 'surprise': 0.1, 'sadness': 0.03, 'fear': 0.02, 'anger': 0.03, 'disgust': 0.02},
-      'reactions': {'joy': 42, 'anticipation': 15, 'trust': 7, 'surprise': 12, 'sadness': 0, 'fear': 0, 'anger': 0, 'disgust': 0},
-      'commentCount': 23,
-    },
-    {
-      'id': '3',
-      'userName': 'Thu Hà',
-      'userHandle': '@thuha_dreamer',
-      'timeAgo': '6h',
-      'content': 'Nghe playlist lofi chill cả buổi chiều, thời tiết mát mát là lý do hoàn hảo để pha một ly cà phê nóng và đọc sách 📖☕',
-      'hasImage': true,
-      'imageUrl': 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600',
-      'emotionVector': {'trust': 0.3, 'joy': 0.25, 'anticipation': 0.15, 'surprise': 0.05, 'sadness': 0.1, 'fear': 0.05, 'anger': 0.05, 'disgust': 0.05},
-      'reactions': {'trust': 18, 'joy': 14, 'anticipation': 3, 'surprise': 1, 'sadness': 2, 'fear': 0, 'anger': 0, 'disgust': 0},
-      'commentCount': 8,
-    },
-  ];
+/// Enhanced: shimmer loading → pull-to-refresh → infinite scroll
+class _ForYouTab extends ConsumerStatefulWidget {
+  const _ForYouTab();
+
+  @override
+  ConsumerState<_ForYouTab> createState() => _ForYouTabState();
+}
+
+class _ForYouTabState extends ConsumerState<_ForYouTab> {
+  final ScrollController _scrollController = ScrollController();
+  final List<Map<String, dynamic>> _posts = [];
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitial();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Infinite scroll: load more khi gần cuối list
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
+
+  /// Load lần đầu
+  Future<void> _loadInitial() async {
+    setState(() {
+      _isLoading = true;
+      _currentPage = 0;
+      _posts.clear();
+    });
+
+    final feedService = ref.read(feedServiceProvider);
+    final result = await feedService.getForYouFeed(page: 0);
+
+    if (mounted) {
+      setState(() {
+        _posts.addAll(result.posts);
+        _hasMore = result.hasMore;
+        _isLoading = false;
+        _currentPage = 1;
+      });
+    }
+  }
+
+  /// Load thêm (infinite scroll)
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+
+    final feedService = ref.read(feedServiceProvider);
+    final result = await feedService.getForYouFeed(page: _currentPage);
+
+    if (mounted) {
+      setState(() {
+        _posts.addAll(result.posts);
+        _hasMore = result.hasMore;
+        _isLoadingMore = false;
+        _currentPage++;
+      });
+    }
+  }
+
+  /// Pull-to-refresh
+  Future<void> _onRefresh() async {
+    await _loadInitial();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 8, bottom: 100),
-      itemCount: _mockPosts.length,
-      itemBuilder: (context, index) {
-        return PostCard(post: _mockPosts[index])
-            .animate()
-            .fadeIn(duration: 400.ms, delay: (index * 100).ms)
-            .slideY(begin: 0.05, duration: 400.ms, delay: (index * 100).ms);
-      },
+    // ── Shimmer loading state ──
+    if (_isLoading) {
+      return const ShimmerFeedLoading(itemCount: 3);
+    }
+
+    // ── Empty state ──
+    if (_posts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AuraColors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.explore_outlined, size: 48,
+                  color: AuraColors.primary.withValues(alpha: 0.5)),
+            ),
+            const SizedBox(height: 20),
+            Text('Chưa có bài viết',
+                style: AuraTypography.headlineSmall
+                    .copyWith(color: AuraColors.textSecondary)),
+            const SizedBox(height: 8),
+            Text('Hãy follow ai đó để xem feed!',
+                style: AuraTypography.bodyMedium
+                    .copyWith(color: AuraColors.textTertiary)),
+          ],
+        ),
+      );
+    }
+
+    // ── Feed list with pull-to-refresh + infinite scroll ──
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AuraColors.primary,
+      backgroundColor: AuraColors.surface,
+      displacement: 40,
+      child: ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 8, bottom: 100),
+        itemCount: _posts.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          // ── Loading more indicator at bottom ──
+          if (index == _posts.length) {
+            return _buildLoadMoreIndicator();
+          }
+
+          final delay = Duration(milliseconds: (index * 100).clamp(0, 500));
+          return PostCard(post: _posts[index])
+              .animate()
+              .fadeIn(duration: 400.ms, delay: delay)
+              .slideY(begin: 0.05, duration: 400.ms, delay: delay);
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      alignment: Alignment.center,
+      child: _isLoadingMore
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(
+                        AuraColors.primary.withValues(alpha: 0.6)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Đang tải thêm...',
+                  style: AuraTypography.labelMedium
+                      .copyWith(color: AuraColors.textTertiary),
+                ),
+              ],
+            )
+          : const SizedBox.shrink(),
     );
   }
 }
 
 /// Tab Following – Chronological feed
-class _FollowingTab extends StatelessWidget {
+/// Enhanced: pull-to-refresh + shimmer loading
+class _FollowingTab extends ConsumerStatefulWidget {
+  const _FollowingTab();
+
+  @override
+  ConsumerState<_FollowingTab> createState() => _FollowingTabState();
+}
+
+class _FollowingTabState extends ConsumerState<_FollowingTab> {
+  final List<Map<String, dynamic>> _posts = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPosts();
+  }
+
+  Future<void> _loadPosts() async {
+    setState(() => _isLoading = true);
+
+    final feedService = ref.read(feedServiceProvider);
+    final result = await feedService.getFollowingFeed(page: 0);
+
+    if (mounted) {
+      setState(() {
+        _posts.clear();
+        _posts.addAll(result.posts);
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.people_outline_rounded,
-            size: 64,
-            color: AuraColors.textTertiary.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Following Feed',
-            style: AuraTypography.headlineSmall.copyWith(
-              color: AuraColors.textSecondary,
+    if (_isLoading) {
+      return const ShimmerFeedLoading(itemCount: 2);
+    }
+
+    if (_posts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline_rounded,
+              size: 64,
+              color: AuraColors.textTertiary.withValues(alpha: 0.5),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Posts từ những người bạn follow\nsẽ hiển thị ở đây',
-            style: AuraTypography.bodyMedium.copyWith(
-              color: AuraColors.textTertiary,
+            const SizedBox(height: 16),
+            Text(
+              'Following Feed',
+              style: AuraTypography.headlineSmall.copyWith(
+                color: AuraColors.textSecondary,
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Posts từ những người bạn follow\nsẽ hiển thị ở đây',
+              style: AuraTypography.bodyMedium.copyWith(
+                color: AuraColors.textTertiary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadPosts,
+      color: AuraColors.primary,
+      backgroundColor: AuraColors.surface,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 8, bottom: 100),
+        itemCount: _posts.length,
+        itemBuilder: (context, index) {
+          return PostCard(post: _posts[index])
+              .animate()
+              .fadeIn(duration: 400.ms, delay: (index * 100).ms)
+              .slideY(begin: 0.05, duration: 400.ms, delay: (index * 100).ms);
+        },
       ),
     );
   }

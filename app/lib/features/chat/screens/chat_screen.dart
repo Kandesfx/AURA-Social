@@ -15,9 +15,9 @@ import '../widgets/chat_input.dart';
 ///
 /// Màn hình chat 1-1 real-time.
 /// - AppBar: avatar + name + online status
-/// - Messages: grouped by date, scroll to bottom
+/// - Messages: grouped by date, scroll to bottom (RTDB stream)
 /// - Input bar: text + emoji + attach + send
-/// - Typing indicator
+/// - Typing indicator (RTDB stream)
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
     super.key,
@@ -30,27 +30,51 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with WidgetsBindingObserver {
   final _scrollController = ScrollController();
-  bool _showTyping = false;
+  int _previousMessageCount = 0;
 
   @override
   void initState() {
     super.initState();
-    // Scroll to bottom sau khi build
+    WidgetsBinding.instance.addObserver(this);
+
+    // Mark as read khi vào screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom(animate: false);
-      // Mark as read
-      ref
-          .read(conversationsProvider.notifier)
-          .markAsRead(widget.conversationId, ref.read(currentUserIdProvider));
+      _markAsRead();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
+
+    // Clear typing khi rời screen
+    _clearTyping();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _clearTyping();
+    }
+  }
+
+  void _markAsRead() {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId.isEmpty) return;
+    ref
+        .read(conversationActionsProvider)
+        .markAsRead(widget.conversationId, currentUserId);
+  }
+
+  void _clearTyping() {
+    ref
+        .read(typingActionProvider)
+        .setTyping(widget.conversationId, false);
   }
 
   void _scrollToBottom({bool animate = true}) {
@@ -68,42 +92,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _handleSend(String text) {
-    final notifier =
-        ref.read(chatMessagesProvider(widget.conversationId).notifier);
-    notifier.sendMessage(text);
+    final conversations = ref.read(conversationsProvider);
+    final conversation = conversations.firstWhere(
+      (c) => c.id == widget.conversationId,
+      orElse: () => conversations.first,
+    );
 
-    // Update conversation last message
-    ref.read(conversationsProvider.notifier).updateLastMessage(
-          widget.conversationId,
-          LastMessage(
-            content: text,
-            senderId: ref.read(currentUserIdProvider),
-            timestamp: DateTime.now(),
-          ),
+    // Gửi message qua ChatService
+    ref.read(sendMessageProvider).send(
+          conversationId: widget.conversationId,
+          content: text,
+          participants: conversation.participants,
         );
 
-    // Scroll to bottom
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    // Clear typing status
+    _clearTyping();
 
-    // Simulate typing response sau 1.5s
-    _simulateTypingResponse();
+    // Scroll to bottom sau khi message được thêm
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
-  void _simulateTypingResponse() {
-    // Show typing sau 1s
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        setState(() => _showTyping = true);
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-      }
-    });
-
-    // Hide typing và "nhận" tin nhắn sau 3s
-    Future.delayed(const Duration(milliseconds: 3500), () {
-      if (mounted) {
-        setState(() => _showTyping = false);
-      }
-    });
+  void _handleTypingChanged(bool isTyping) {
+    ref
+        .read(typingActionProvider)
+        .setTyping(widget.conversationId, isTyping);
   }
 
   @override
@@ -113,15 +125,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final currentUserId = ref.watch(currentUserIdProvider);
     final conversations = ref.watch(conversationsProvider);
 
+    // Auto-scroll khi có message mới
+    if (messages.length > _previousMessageCount && _previousMessageCount > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
+    _previousMessageCount = messages.length;
+
     // Tìm conversation hiện tại
     final conversation = conversations.firstWhere(
       (c) => c.id == widget.conversationId,
-      orElse: () => conversations.first,
+      orElse: () => ConversationModel(
+        id: widget.conversationId,
+        participants: [],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
     );
 
-    final peerId = conversation.participants.firstWhere(
-      (p) => p != currentUserId,
-      orElse: () => '',
+    final peerId = conversation.participants.isNotEmpty
+        ? conversation.participants.firstWhere(
+            (p) => p != currentUserId,
+            orElse: () => '',
+          )
+        : '';
+
+    // Watch typing status từ RTDB stream
+    final typingStatus =
+        ref.watch(typingStatusProvider(widget.conversationId));
+    final showTyping = typingStatus.isTyping;
+
+    // Watch loading state
+    final isLoading = ref.watch(
+      chatMessagesStreamProvider(widget.conversationId)
+          .select((v) => v.isLoading),
     );
 
     return Scaffold(
@@ -131,58 +167,63 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         children: [
           // ── Messages ──
           Expanded(
-            child: messages.isEmpty
-                ? _buildEmptyChat(conversation.peerName ?? 'User')
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(top: 16, bottom: 8),
-                    itemCount: messages.length + (_showTyping ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      // Typing indicator ở cuối
-                      if (_showTyping && index == messages.length) {
-                        return TypingIndicator(
-                          userName: conversation.peerName,
-                          showName: false,
-                        ).animate().fadeIn(duration: 200.ms);
-                      }
+            child: isLoading && messages.isEmpty
+                ? _buildLoadingState()
+                : messages.isEmpty
+                    ? _buildEmptyChat(conversation.peerName ?? 'User')
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.only(top: 16, bottom: 8),
+                        itemCount: messages.length + (showTyping ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          // Typing indicator ở cuối
+                          if (showTyping && index == messages.length) {
+                            return TypingIndicator(
+                              userName: conversation.peerName,
+                              showName: false,
+                            ).animate().fadeIn(duration: 200.ms);
+                          }
 
-                      final message = messages[index];
-                      final isMine = message.isMine(currentUserId);
+                          final message = messages[index];
+                          final isMine = message.isMine(currentUserId);
 
-                      // Check nếu message tiếp theo cùng sender
-                      final isLastInGroup = index == messages.length - 1 ||
-                          messages[index + 1].senderId != message.senderId;
+                          // Check nếu message tiếp theo cùng sender
+                          final isLastInGroup = index == messages.length - 1 ||
+                              messages[index + 1].senderId != message.senderId;
 
-                      // Date separator
-                      Widget? dateSeparator;
-                      if (index == 0 ||
-                          !_isSameDay(messages[index - 1].timestamp,
-                              message.timestamp)) {
-                        dateSeparator = DateSeparator(
-                          date: _formatDate(message.timestamp),
-                        );
-                      }
+                          // Date separator
+                          Widget? dateSeparator;
+                          if (index == 0 ||
+                              !_isSameDay(messages[index - 1].timestamp,
+                                  message.timestamp)) {
+                            dateSeparator = DateSeparator(
+                              date: _formatDate(message.timestamp),
+                            );
+                          }
 
-                      return Column(
-                        children: [
-                          ?dateSeparator,
-                          MessageBubble(
-                            message: message,
-                            isMine: isMine,
-                            isLastInGroup: isLastInGroup,
-                          ).animate().fadeIn(
-                                duration: 250.ms,
-                                delay: Duration(milliseconds: (index * 30).clamp(0, 300)),
-                              ),
-                        ],
-                      );
-                    },
-                  ),
+                          return Column(
+                            children: [
+                              ?dateSeparator,
+                              MessageBubble(
+                                message: message,
+                                isMine: isMine,
+                                isLastInGroup: isLastInGroup,
+                              ).animate().fadeIn(
+                                    duration: 250.ms,
+                                    delay: Duration(
+                                        milliseconds:
+                                            (index * 30).clamp(0, 300)),
+                                  ),
+                            ],
+                          );
+                        },
+                      ),
           ),
 
           // ── Input ──
           ChatInput(
             onSend: _handleSend,
+            onTypingChanged: _handleTypingChanged,
             onAttach: () {
               // TODO: image picker
             },
@@ -200,7 +241,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ConversationModel conversation,
     String peerId,
   ) {
-    final presence = ref.watch(userPresenceProvider(peerId));
+    final presence = peerId.isNotEmpty
+        ? ref.watch(userPresenceProvider(peerId))
+        : const UserPresence();
 
     return AppBar(
       backgroundColor: AuraColors.surface,
@@ -292,6 +335,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           height: 0.5,
           color: AuraColors.surfaceBorder,
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: AuraColors.primary,
+        strokeWidth: 2,
       ),
     );
   }

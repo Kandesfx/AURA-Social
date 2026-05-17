@@ -17,7 +17,7 @@ import '../providers/chat_provider.dart';
 /// - Soul Connect badge
 /// - Swipe-to-delete
 /// - Pull-to-refresh
-/// - Empty state
+/// - Loading/Error/Empty states
 class ConversationsListScreen extends ConsumerStatefulWidget {
   const ConversationsListScreen({super.key});
 
@@ -49,9 +49,9 @@ class _ConversationsListScreenState
 
   @override
   Widget build(BuildContext context) {
-    final conversations = ref.watch(conversationsProvider);
+    // Watch async stream trực tiếp để có loading/error states
+    final asyncConversations = ref.watch(conversationsStreamProvider);
     final currentUserId = ref.watch(currentUserIdProvider);
-    final filtered = _filteredConversations(conversations);
 
     return Scaffold(
       backgroundColor: AuraColors.background,
@@ -84,123 +84,187 @@ class _ConversationsListScreenState
           const SizedBox(width: 4),
         ],
       ),
-      body: Column(
-        children: [
-          // ── Search Bar ──
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AuraColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AuraColors.surfaceBorder,
-                  width: 0.5,
-                ),
+      body: asyncConversations.when(
+        // ── Loading State ──
+        loading: () => const Center(
+          child: CircularProgressIndicator(
+            color: AuraColors.primary,
+            strokeWidth: 2,
+          ),
+        ),
+
+        // ── Error State ──
+        error: (error, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: AuraColors.error.withValues(alpha: 0.7),
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) {
-                  setState(() => _searchQuery = value.toLowerCase());
-                },
-                style: AuraTypography.bodyMedium.copyWith(
+              const SizedBox(height: 16),
+              Text(
+                'Không thể tải tin nhắn',
+                style: AuraTypography.titleMedium.copyWith(
                   color: AuraColors.textPrimary,
                 ),
-                decoration: InputDecoration(
-                  hintText: 'Tìm kiếm tin nhắn...',
-                  hintStyle: AuraTypography.bodyMedium.copyWith(
-                    color: AuraColors.textTertiary,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    color: AuraColors.textTertiary,
-                    size: 20,
-                  ),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            color: AuraColors.textTertiary,
-                            size: 18,
-                          ),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                error.toString(),
+                style: AuraTypography.bodySmall.copyWith(
+                  color: AuraColors.textTertiary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // ignore: unused_result
+                  ref.refresh(conversationsStreamProvider);
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Thử lại'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AuraColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
+        ),
 
-          // ── Online Friends Horizontal ──
-          _OnlineFriendsBar(
-            conversations: conversations
-                .where((c) => c.isPeerOnline)
-                .toList(),
-          ),
+        // ── Data State ──
+        data: (conversations) {
+          final filtered = _filteredConversations(conversations);
 
-          // ── Conversations List ──
-          Expanded(
-            child: filtered.isEmpty
-                ? _buildEmptyState()
-                : RefreshIndicator(
-                    color: AuraColors.primary,
-                    backgroundColor: AuraColors.surface,
-                    onRefresh: () async {
-                      // TODO: fetch from backend
-                      await Future.delayed(
-                          const Duration(milliseconds: 800));
-                    },
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(top: 4, bottom: 100),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final conv = filtered[index];
-                        return Dismissible(
-                          key: ValueKey(conv.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 24),
-                            color: AuraColors.error.withValues(alpha: 0.15),
-                            child: const Icon(
-                              Icons.delete_outline_rounded,
-                              color: AuraColors.error,
-                            ),
-                          ),
-                          confirmDismiss: (_) async {
-                            // TODO: confirm dialog
-                            return false;
-                          },
-                          child: _ConversationTile(
-                            conversation: conv,
-                            currentUserId: currentUserId,
-                            onTap: () {
-                              context.push('/chat/${conv.id}');
-                            },
-                          ).animate().fadeIn(
-                                duration: 300.ms,
-                                delay: (index * 60).ms,
-                              ).slideX(
-                                begin: 0.03,
-                                duration: 300.ms,
-                                delay: (index * 60).ms,
-                              ),
-                        );
-                      },
+          return Column(
+            children: [
+              // ── Search Bar ──
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AuraColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AuraColors.surfaceBorder,
+                      width: 0.5,
                     ),
                   ),
-          ),
-        ],
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() => _searchQuery = value.toLowerCase());
+                    },
+                    style: AuraTypography.bodyMedium.copyWith(
+                      color: AuraColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Tìm kiếm tin nhắn...',
+                      hintStyle: AuraTypography.bodyMedium.copyWith(
+                        color: AuraColors.textTertiary,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: AuraColors.textTertiary,
+                        size: 20,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: AuraColors.textTertiary,
+                                size: 18,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Online Friends Horizontal ──
+              _OnlineFriendsBar(
+                conversations: conversations
+                    .where((c) => c.isPeerOnline)
+                    .toList(),
+              ),
+
+              // ── Conversations List ──
+              Expanded(
+                child: filtered.isEmpty
+                    ? _buildEmptyState()
+                    : RefreshIndicator(
+                        color: AuraColors.primary,
+                        backgroundColor: AuraColors.surface,
+                        onRefresh: () async {
+                          // Stream tự update, refresh chỉ để UX
+                          // ignore: unused_result
+                          ref.refresh(conversationsStreamProvider);
+                          await Future.delayed(
+                              const Duration(milliseconds: 500));
+                        },
+                        child: ListView.builder(
+                          padding:
+                              const EdgeInsets.only(top: 4, bottom: 100),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final conv = filtered[index];
+                            return Dismissible(
+                              key: ValueKey(conv.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24),
+                                color: AuraColors.error
+                                    .withValues(alpha: 0.15),
+                                child: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AuraColors.error,
+                                ),
+                              ),
+                              confirmDismiss: (_) async {
+                                // TODO: confirm dialog
+                                return false;
+                              },
+                              child: _ConversationTile(
+                                conversation: conv,
+                                currentUserId: currentUserId,
+                                onTap: () {
+                                  context.push('/chat/${conv.id}');
+                                },
+                              ).animate().fadeIn(
+                                    duration: 300.ms,
+                                    delay: (index * 60).ms,
+                                  ).slideX(
+                                    begin: 0.03,
+                                    duration: 300.ms,
+                                    delay: (index * 60).ms,
+                                  ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -259,14 +323,6 @@ class _ConversationsListScreenState
               color: AuraColors.textPrimary,
             ),
           ),
-          // const SizedBox(height: 8),
-          // Text(
-          //   'Kết nối với mọi người qua Soul Connect\nđể bắt đầu trò chuyện!',
-          //   style: AuraTypography.bodyMedium.copyWith(
-          //     color: AuraColors.textTertiary,
-          //   ),
-          //   textAlign: TextAlign.center,
-          // ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => context.go('/soul'),

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -11,7 +12,6 @@ import '../../../shared/widgets/loading_widget.dart';
 import '../../../shared/widgets/error_widget.dart';
 import '../../../providers/user_profile_provider.dart';
 import '../../../providers/emotion_profile_provider.dart';
-import '../../../core/constants/emotion_types.dart';
 import '../../feed/models/post_model.dart';
 
 /// AURA Social – Other User Profile Screen
@@ -97,7 +97,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 confidence: emotion?.emotionConfidence ?? 0.0,
                 arousal: emotion?.arousal ?? 0.3,
                 glowIntensity: 0.5,
-              ).animate().fadeIn(duration: 500.ms).scale(begin: const Offset(.8, .8), duration: 500.ms, curve: Curves.easeOutBack),
+              ),
 
               const SizedBox(height: 16),
 

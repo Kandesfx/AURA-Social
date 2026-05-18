@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../services/feed_service.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
+import '../models/post_model.dart';
 import '../widgets/post_card.dart';
 
 /// AURA Social – Feed Screen
@@ -286,7 +287,7 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
           }
 
           final delay = Duration(milliseconds: (index * 100).clamp(0, 500));
-          return PostCard(post: _posts[index])
+          return PostCard(post: PostModel.fromMockMap(_posts[index]))
               .animate()
               .fadeIn(duration: 400.ms, delay: delay)
               .slideY(begin: 0.05, duration: 400.ms, delay: delay);
@@ -404,7 +405,7 @@ class _FollowingTabState extends ConsumerState<_FollowingTab> {
         padding: const EdgeInsets.only(top: 8, bottom: 100),
         itemCount: _posts.length,
         itemBuilder: (context, index) {
-          return PostCard(post: _posts[index])
+          return PostCard(post: PostModel.fromMockMap(_posts[index]))
               .animate()
               .fadeIn(duration: 400.ms, delay: (index * 100).ms)
               .slideY(begin: 0.05, duration: 400.ms, delay: (index * 100).ms);

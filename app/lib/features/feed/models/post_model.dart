@@ -110,6 +110,36 @@ class PostModel {
     );
   }
 
+  /// Tạo PostModel từ mock Map data (FeedService mock).
+  factory PostModel.fromMockMap(Map<String, dynamic> data) {
+    final emotionVector = data['emotionVector'] as Map<String, dynamic>? ?? {};
+    final reactions = data['reactions'] as Map<String, dynamic>? ?? {};
+    return PostModel(
+      postId: data['id'] ?? '',
+      userId: data['userId'] ?? '',
+      content: data['content'] ?? '',
+      mediaUrls: data['hasImage'] == true && data['imageUrl'] != null
+          ? [data['imageUrl'] as String]
+          : [],
+      mediaType: data['hasImage'] == true ? 'image' : 'none',
+      aiEmotionVector: emotionVector.map((k, v) => MapEntry(k, (v as num).toDouble())),
+      reactionsBreakdown: reactions.map((k, v) => MapEntry(k, (v as num).toInt())),
+      reactionsCount: reactions.values.fold<int>(0, (sum, v) => sum + (v as num).toInt()),
+      commentsCount: data['commentCount'] ?? 0,
+      createdAt: DateTime.now().subtract(Duration(hours: int.tryParse(data['timeAgo']?.replaceAll(RegExp(r'[^0-9]'), '') ?? '1') ?? 1)),
+      authorName: data['userName'],
+      authorUsername: data['userHandle']?.replaceAll('@', ''),
+      authorAvatarUrl: data['avatarUrl'],
+      authorDominantEmotion: _findDominantFromMap(emotionVector),
+    );
+  }
+
+  static String _findDominantFromMap(Map<String, dynamic> vec) {
+    if (vec.isEmpty) return 'explore';
+    final sorted = vec.entries.toList()..sort((a, b) => (b.value as num).compareTo(a.value as num));
+    return sorted.first.key;
+  }
+
   /// Chuyển thành Map để ghi vào Firestore khi tạo post mới.
   Map<String, dynamic> toFirestore() {
     return {

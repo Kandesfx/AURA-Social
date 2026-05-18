@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 /// AURA Social – Splash Screen
 ///
 /// Màn hình chờ khi mở app, hiển thị logo với animation.
+/// Sau animation, kiểm tra auth state và điều hướng phù hợp.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -23,7 +25,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _navigateAfterDelay() async {
     await Future.delayed(const Duration(milliseconds: 2800));
-    if (mounted) {
+    if (!mounted) return;
+
+    // Kiểm tra auth state — nếu đã login, vào feed; nếu không, vào login
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      context.go('/feed');
+    } else {
       context.go('/login');
     }
   }

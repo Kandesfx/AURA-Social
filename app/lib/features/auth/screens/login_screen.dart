@@ -29,9 +29,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    final ok = await ref.read(authNotifierProvider.notifier)
+    // Router tự redirect tới /feed khi Firebase Auth state thay đổi
+    await ref.read(authNotifierProvider.notifier)
         .signInWithEmail(_emailCtrl.text, _passwordCtrl.text);
-    if (ok && mounted) context.go('/feed');
   }
 
   @override

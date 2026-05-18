@@ -41,13 +41,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
 
-    final ok = await ref.read(authNotifierProvider.notifier).registerWithEmail(
+    // Router tự redirect tới /feed khi Firebase Auth state thay đổi
+    await ref.read(authNotifierProvider.notifier).registerWithEmail(
       email: _emailCtrl.text,
       password: _passwordCtrl.text,
       displayName: _usernameCtrl.text,
       username: _usernameCtrl.text.toLowerCase().replaceAll(' ', '_'),
     );
-    if (ok && mounted) context.go('/feed');
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/screens/splash_screen.dart';
@@ -24,15 +25,27 @@ import '../../features/waves/screens/wave_chat_screen.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../../shared/widgets/main_scaffold.dart';
 
+/// Listenable wrapper cho Firebase Auth stream — để GoRouter tự refresh khi auth thay đổi
+class _AuthStateListenable extends ChangeNotifier {
+  _AuthStateListenable() {
+    FirebaseAuth.instance.authStateChanges().listen((_) {
+      notifyListeners();
+    });
+  }
+}
+
 /// AURA Social – Router Configuration
 ///
 /// GoRouter setup với:
-/// - Auth guard: redirect khi chưa/đã login
+/// - Auth guard: redirect khi chưa/đã login (stream-based, không bị race condition)
 /// - ShellRoute cho bottom navigation
 /// - Fullscreen routes (create post, post detail)
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final authListenable = _AuthStateListenable();
+
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: authListenable, // Tự reload khi auth state thay đổi
     // Auth redirect: kiểm tra trạng thái đăng nhập
     redirect: (context, state) {
       final user = FirebaseAuth.instance.currentUser;

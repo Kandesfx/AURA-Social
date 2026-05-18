@@ -1,16 +1,37 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
+import '../../../shared/widgets/loading_widget.dart';
+import '../../../shared/widgets/error_widget.dart';
+import '../../../providers/user_profile_provider.dart';
+import '../../../providers/emotion_profile_provider.dart';
+import '../../../providers/auth_state_provider.dart';
+import '../../../core/constants/emotion_types.dart';
+import '../../feed/models/post_model.dart';
 
-/// AURA Social – Profile Screen
-class ProfileScreen extends StatelessWidget {
+/// AURA Social – Profile Screen (Connected to Firestore)
+///
+/// Hiển thị profile user đang login với:
+/// - Avatar + Aura Ring (emotion vector thực từ provider)
+/// - Stats: followers, following, posts
+/// - Emotional Compass card (mood + confidence + mode)
+/// - Post grid (query Firestore)
+/// - Logout, Edit Profile, Settings actions
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(currentUserProfileProvider);
+    final emotionAsync = ref.watch(currentEmotionProfileProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -19,96 +40,72 @@ class ProfileScreen extends StatelessWidget {
             icon: const Icon(Icons.settings_outlined, size: 22),
             onPressed: () => context.push('/settings'),
           ),
+          IconButton(icon: const Icon(Icons.edit_outlined, size: 22), onPressed: () => context.push('/profile/edit')),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, size: 22),
+            onSelected: (v) async {
+              if (v == 'logout') {
+                await ref.read(authNotifierProvider.notifier).signOut();
+                if (context.mounted) context.go('/login');
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'settings', child: Row(children: [Icon(Icons.settings_outlined, size: 18), SizedBox(width: 8), Text('Cài đặt')])),
+              const PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 18, color: AuraColors.error), SizedBox(width: 8), Text('Đăng xuất', style: TextStyle(color: AuraColors.error))])),
+            ],
+          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 100),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
+      body: userAsync.when(
+        loading: () => const AuraLoadingWidget(),
+        error: (e, _) => AuraErrorWidget(message: e.toString(), onRetry: () => ref.invalidate(currentUserProfileProvider)),
+        data: (user) {
+          if (user == null) return const AuraErrorWidget(message: 'Không tìm thấy thông tin người dùng');
 
-            // ── Avatar + Aura Ring ──
-            Builder(
-              builder: (context) {
-                final ring = AuraRing(
-                  size: 110,
-                  emotionVector: const {
-                    'joy': 0.3, 'trust': 0.2, 'anticipation': 0.25,
-                    'surprise': 0.1, 'sadness': 0.05, 'fear': 0.04,
-                    'anger': 0.03, 'disgust': 0.03,
-                  },
-                  glowIntensity: 0.5,
-                );
-                return ring;
-              },
-            ).animate().fadeIn(duration: 500.ms).scale(
-                  begin: const Offset(0.8, 0.8),
-                  duration: 500.ms,
-                  curve: Curves.easeOutBack,
-                ),
+          final emotion = emotionAsync.valueOrNull;
 
-            const SizedBox(height: 16),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 100),
+            child: Column(children: [
+              const SizedBox(height: 20),
 
-            // ── Name ──
-            Text(
-              'Nguyễn Hải',
-              style: AuraTypography.headlineMedium.copyWith(
-                color: AuraColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '@hai_nguyen',
-              style: AuraTypography.bodyMedium.copyWith(
-                color: AuraColors.textTertiary,
-              ),
-            ),
-            const SizedBox(height: 12),
+              // ── Avatar + Aura Ring ──
+              AuraRing(
+                size: 110,
+                imageUrl: user.avatarUrl,
+                emotionVector: emotion?.currentEmotionVector,
+                confidence: emotion?.emotionConfidence ?? 0.0,
+                arousal: emotion?.arousal ?? 0.3,
+                glowIntensity: 0.5,
+              ).animate().fadeIn(duration: 500.ms).scale(begin: const Offset(.8, .8), duration: 500.ms, curve: Curves.easeOutBack),
 
-            // ── Bio ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                'Dreamer. Coffee lover ☕ | Building things that matter 🚀',
-                style: AuraTypography.bodyMedium.copyWith(
-                  color: AuraColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 20),
+              // ── Name + Username ──
+              Text(user.displayName, style: AuraTypography.headlineMedium.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text('@${user.username}', style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textTertiary)),
 
-            // ── Stats Row ──
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _StatItem(count: '42', label: 'Posts'),
-                _divider(),
-                _StatItem(count: '1.2K', label: 'Followers'),
-                _divider(),
-                _StatItem(count: '89', label: 'Following'),
-                _divider(),
-                _StatItem(count: '7', label: 'Soul'),
+              if (user.bio != null && user.bio!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(user.bio!, style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textSecondary), textAlign: TextAlign.center)),
               ],
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // ── Edit Profile Button ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {},
-                  child: const Text('Edit Profile'),
-                ),
-              ),
-            ),
+              // ── Stats Row ──
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                _StatItem(count: _fmtCount(user.postsCount), label: 'Posts'),
+                _divider(),
+                _StatItem(count: _fmtCount(user.followersCount), label: 'Followers'),
+                _divider(),
+                _StatItem(count: _fmtCount(user.followingCount), label: 'Following'),
+                _divider(),
+                _StatItem(count: _fmtCount(user.connectionsCount), label: 'Soul'),
+              ]),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
             // ── Emotional Compass Card ──
             GestureDetector(
@@ -190,111 +187,181 @@ class ProfileScreen extends StatelessWidget {
              .slideX(begin: 0.03),
             ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-            // ── Post Grid ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text(
-                    'Posts',
-                    style: AuraTypography.titleMedium.copyWith(
-                      color: AuraColors.textPrimary,
-                    ),
-                  ),
+              // ── Interests Tags ──
+              if (user.interests.isNotEmpty) ...[
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Wrap(spacing: 8, runSpacing: 8,
+                    children: user.interests.map((tag) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(color: AuraColors.primary.withValues(alpha: .1), borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AuraColors.primary.withValues(alpha: .2))),
+                      child: Text('#$tag', style: AuraTypography.labelSmall.copyWith(color: AuraColors.primary)),
+                    )).toList())),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Post Grid Header ──
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(children: [
+                  Text('Bài viết', style: AuraTypography.titleMedium.copyWith(color: AuraColors.textPrimary)),
                   const Spacer(),
-                  Icon(Icons.grid_view_rounded,
-                      size: 20, color: AuraColors.primary),
-                  const SizedBox(width: 12),
-                  Icon(Icons.view_list_rounded,
-                      size: 20, color: AuraColors.textTertiary),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
+                  Icon(Icons.grid_view_rounded, size: 20, color: AuraColors.primary),
+                ])),
+              const SizedBox(height: 12),
 
-            // Grid
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 3,
-                  mainAxisSpacing: 3,
-                ),
-                itemCount: 9,
-                itemBuilder: (context, index) {
-                  final colors = [
-                    AuraColors.emotionJoy,
-                    AuraColors.emotionTrust,
-                    AuraColors.emotionAnticipation,
-                    AuraColors.emotionSurprise,
-                    AuraColors.emotionSadness,
-                    AuraColors.emotionFear,
-                    AuraColors.primary,
-                    AuraColors.secondary,
-                    AuraColors.tertiary,
-                  ];
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: colors[index % colors.length].withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.image_rounded,
-                      color: colors[index % colors.length].withValues(alpha: 0.4),
-                      size: 32,
-                    ),
-                  ).animate()
-                   .fadeIn(delay: (index * 60).ms, duration: 300.ms)
-                   .scale(begin: const Offset(0.9, 0.9), duration: 300.ms);
-                },
-              ),
-            ),
-          ],
-        ),
+              // ── Post Grid (Firestore) ──
+              _PostGrid(userId: user.uid),
+            ]),
+          );
+        },
       ),
     );
   }
 
-  Widget _divider() {
+  static Widget _divider() => Container(height: 28, width: 1, margin: const EdgeInsets.symmetric(horizontal: 20), color: AuraColors.surfaceBorder);
+  static String _fmtCount(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
+    return n.toString();
+  }
+}
+
+/// Emotional Compass card – hiển thị dominant emotion + confidence + mode
+class _EmotionalCompassCard extends StatelessWidget {
+  const _EmotionalCompassCard({required this.emotion});
+  final dynamic emotion; // EmotionProfileModel
+
+  @override
+  Widget build(BuildContext context) {
+    final dominant = emotion.dominantEmotion as String;
+    final emotionType = EmotionType.values.where((e) => e.key == dominant).firstOrNull;
+    final conf = ((emotion.emotionConfidence as double) * 100).toInt();
+    final mode = EmotionalMode.values.where((m) => m.key == (emotion.emotionalMode as String)).firstOrNull;
+
     return Container(
-      height: 28,
-      width: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      color: AuraColors.surfaceBorder,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [
+          AuraColors.getEmotionColor(dominant).withValues(alpha: .08),
+          AuraColors.getEmotionColor(dominant).withValues(alpha: .02),
+        ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AuraColors.getEmotionColor(dominant).withValues(alpha: .15)),
+      ),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: AuraColors.getEmotionColor(dominant).withValues(alpha: .12), borderRadius: BorderRadius.circular(12)),
+          child: Text(emotionType?.emoji ?? '🧭', style: const TextStyle(fontSize: 24))),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Cảm xúc hiện tại', style: AuraTypography.titleSmall.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Row(children: [
+            Text('${emotionType?.emoji ?? ""} ${emotionType?.labelVi ?? dominant}',
+              style: AuraTypography.bodySmall.copyWith(color: AuraColors.getEmotionColor(dominant), fontWeight: FontWeight.w600)),
+            const SizedBox(width: 12),
+            Text('📊 $conf%', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textSecondary)),
+          ]),
+          if (mode != null) ...[
+            const SizedBox(height: 2),
+            Text('Mode: ${mode.emoji} ${mode.labelVi}', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary, fontSize: 11)),
+          ],
+          Text(emotion.moodDescription as String, style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary, fontSize: 11)),
+        ])),
+      ]),
     );
   }
 }
 
+/// Post grid – query Firestore posts của 1 user
+class _PostGrid extends StatelessWidget {
+  const _PostGrid({required this.userId});
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('posts')
+          .where('user_id', isEqualTo: userId)
+          .where('status', isEqualTo: 'active')
+          .orderBy('created_at', descending: true)
+          .limit(30)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: AuraColors.primary)));
+        }
+
+        final posts = snap.data?.docs.map((d) => PostModel.fromFirestore(d)).toList() ?? [];
+
+        if (posts.isEmpty) {
+          return Padding(padding: const EdgeInsets.all(32), child: Center(
+            child: Column(children: [
+              Icon(Icons.photo_library_outlined, size: 48, color: AuraColors.textTertiary.withValues(alpha: .4)),
+              const SizedBox(height: 8),
+              Text('Chưa có bài viết nào', style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textTertiary)),
+            ])));
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GridView.builder(
+            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 3, mainAxisSpacing: 3),
+            itemCount: posts.length,
+            itemBuilder: (context, i) {
+              final post = posts[i];
+              return GestureDetector(
+                onTap: () => context.push('/post/${post.postId}'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AuraColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: post.hasMedia && post.mediaUrls.isNotEmpty
+                    ? ClipRRect(borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(imageUrl: post.mediaUrls.first, fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(color: AuraColors.surfaceVariant),
+                          errorWidget: (_, __, ___) => _textPreview(post)))
+                    : _textPreview(post),
+                ).animate().fadeIn(delay: (i * 50).ms, duration: 300.ms).scale(begin: const Offset(.9, .9), duration: 300.ms),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _textPreview(PostModel post) => Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(colors: [
+        AuraColors.getEmotionColor(post.dominantEmotion).withValues(alpha: .15),
+        AuraColors.surfaceVariant,
+      ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+      borderRadius: BorderRadius.circular(8)),
+    child: Center(child: Text(
+      post.content.length > 40 ? '${post.content.substring(0, 40)}...' : post.content,
+      style: AuraTypography.bodySmall.copyWith(color: AuraColors.textSecondary, fontSize: 10),
+      textAlign: TextAlign.center, maxLines: 4, overflow: TextOverflow.ellipsis)),
+  );
+}
+
 class _StatItem extends StatelessWidget {
   const _StatItem({required this.count, required this.label});
-
   final String count;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          count,
-          style: AuraTypography.headlineSmall.copyWith(
-            color: AuraColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: AuraTypography.labelSmall.copyWith(
-            color: AuraColors.textTertiary,
-          ),
-        ),
-      ],
-    );
+    return Column(children: [
+      Text(count, style: AuraTypography.headlineSmall.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 2),
+      Text(label, style: AuraTypography.labelSmall.copyWith(color: AuraColors.textTertiary)),
+    ]);
   }
 }

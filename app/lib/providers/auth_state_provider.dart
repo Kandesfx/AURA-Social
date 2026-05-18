@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../shared/models/user_model.dart';
 import '../shared/models/emotion_profile_model.dart';
 
@@ -149,9 +150,93 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Đăng xuất.
   Future<void> signOut() async {
     try {
+      await GoogleSignIn().signOut(); // Đảm bảo Google session cũng bị xóa
       await _auth.signOut();
     } catch (e) {
       debugPrint('[Auth] Sign out error: $e');
+    }
+  }
+
+  /// Đăng nhập / Đăng ký bằng Google.
+  ///
+  /// Nếu là user mới → tự động tạo Firestore document.
+  /// Nếu đã có tài khoản → đăng nhập bình thường.
+  Future<bool> signInWithGoogle() async {
+    state = const AuthState(isLoading: true);
+    try {
+      // 1. Hiện Google Account Picker
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        // User bấm Cancel
+        state = const AuthState();
+        return false;
+      }
+
+      // 2. Lấy Google Auth credentials
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 3. Đăng nhập Firebase
+      final result = await _auth.signInWithCredential(credential);
+      final user = result.user;
+      if (user == null) {
+        state = const AuthState(error: 'Không thể đăng nhập với Google');
+        return false;
+      }
+
+      // 4. Kiểm tra user mới hay cũ
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        // User mới → tạo Firestore document
+        final rawUsername = (user.displayName ?? user.email ?? 'user')
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9]'), '_');
+
+        final userModel = UserModel(
+          uid: user.uid,
+          email: user.email ?? '',
+          displayName: user.displayName ?? 'AURA User',
+          username: rawUsername,
+          avatarUrl: user.photoURL,
+          aiSettings: UserModel.defaultAiSettings(),
+          privacyConsentAt: DateTime.now(),
+        );
+        await _firestore.collection('users').doc(user.uid).set(userModel.toFirestore());
+
+        // Tạo emotion profile mặc định
+        await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('emotion_profile')
+            .doc('current')
+            .set({
+          'current_emotion_vector': EmotionProfileModel.defaultVector,
+          'valence': 0.0,
+          'arousal': 0.0,
+          'dominance': 0.5,
+          'emotion_confidence': 0.0,
+          'emotion_source': 'inferred',
+          'emotional_mode': 'explore',
+          'signals_used': [],
+          'behavior_signals': {},
+          'weekly_pattern': {},
+          'weekly_trend': {},
+          'updated_at': FieldValue.serverTimestamp(),
+          'total_inferences': 0,
+        });
+      }
+
+      state = const AuthState();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      state = AuthState(error: _mapAuthError(e.code));
+      return false;
+    } catch (e) {
+      state = AuthState(error: 'Lỗi Google Sign-In: ${e.toString()}');
+      return false;
     }
   }
 

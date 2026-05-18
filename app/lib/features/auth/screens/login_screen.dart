@@ -146,9 +146,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _googleBtn(AuthState auth) => SizedBox(
     width: double.infinity, height: 52,
     child: OutlinedButton.icon(
-      onPressed: auth.isLoading ? null : () {},
+      onPressed: auth.isLoading ? null : () async {
+        await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+        // Router tự redirect khi Firebase Auth state thay đổi
+      },
       icon: SvgPicture.asset('assets/images/google_g_icon.svg', width: 22, height: 22),
-      label: Text('Đăng nhập với Google', style: AuraTypography.labelLarge.copyWith(color: AuraColors.textPrimary)),
+      label: Text('Tiếp tục với Google', style: AuraTypography.labelLarge.copyWith(color: AuraColors.textPrimary)),
       style: OutlinedButton.styleFrom(side: BorderSide(color: AuraColors.surfaceBorder), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
     ),
   ).animate().fadeIn(delay: 800.ms);

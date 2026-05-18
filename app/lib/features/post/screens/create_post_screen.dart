@@ -9,7 +9,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/constants/emotion_types.dart';
 import '../../../providers/api_service_provider.dart';
-import '../../../providers/user_profile_provider.dart';
 import '../../feed/models/post_model.dart';
 
 /// AURA Social – Create Post Screen (Connected to Firestore + R2 upload)

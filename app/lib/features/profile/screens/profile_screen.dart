@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -77,7 +76,7 @@ class ProfileScreen extends ConsumerWidget {
                 confidence: emotion?.emotionConfidence ?? 0.0,
                 arousal: emotion?.arousal ?? 0.3,
                 glowIntensity: 0.5,
-              ).animate().fadeIn(duration: 500.ms).scale(begin: const Offset(.8, .8), duration: 500.ms, curve: Curves.easeOutBack),
+              ),
 
               const SizedBox(height: 16),
 
@@ -108,84 +107,84 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 20),
 
             // ── Emotional Compass Card ──
-            GestureDetector(
-              onTap: () => context.push('/compass'),
-              child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AuraColors.primary.withValues(alpha: 0.08),
-                    AuraColors.secondary.withValues(alpha: 0.04),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AuraColors.primary.withValues(alpha: 0.15),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AuraColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
+              GestureDetector(
+                onTap: () => context.push('/compass'),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AuraColors.primary.withValues(alpha: 0.08),
+                        AuraColors.secondary.withValues(alpha: 0.04),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    child: const Text('🧭', style: TextStyle(fontSize: 24)),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AuraColors.primary.withValues(alpha: 0.15),
+                    ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Emotional Compass',
-                          style: AuraTypography.titleSmall.copyWith(
-                            color: AuraColors.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AuraColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
+                        child: const Text('🧭', style: TextStyle(fontSize: 24)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Mood: ',
-                              style: AuraTypography.bodySmall.copyWith(
-                                color: AuraColors.textTertiary,
-                              ),
-                            ),
-                            Text(
-                              '🎯 Anticipation',
-                              style: AuraTypography.bodySmall.copyWith(
-                                color: AuraColors.emotionAnticipation,
+                              'Emotional Compass',
+                              style: AuraTypography.titleSmall.copyWith(
+                                color: AuraColors.textPrimary,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              '📊 78%',
-                              style: AuraTypography.bodySmall.copyWith(
-                                color: AuraColors.textSecondary,
-                              ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  'Mood: ',
+                                  style: AuraTypography.bodySmall.copyWith(
+                                    color: AuraColors.textTertiary,
+                                  ),
+                                ),
+                                Text(
+                                  '🎯 Anticipation',
+                                  style: AuraTypography.bodySmall.copyWith(
+                                    color: AuraColors.emotionAnticipation,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  '📊 78%',
+                                  style: AuraTypography.bodySmall.copyWith(
+                                    color: AuraColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: AuraColors.textTertiary,
+                      ),
+                    ],
                   ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: AuraColors.textTertiary,
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(delay: 200.ms, duration: 400.ms)
-             .slideX(begin: 0.03),
-            ),
+                ),
+              ).animate().fadeIn(delay: 200.ms, duration: 400.ms)
+               .slideX(begin: 0.03),
 
               const SizedBox(height: 20),
 

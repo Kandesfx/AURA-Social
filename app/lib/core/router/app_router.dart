@@ -19,6 +19,9 @@ import '../../features/settings/screens/privacy_settings_screen.dart';
 import '../../features/compass/screens/emotional_compass_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
+import '../../features/waves/screens/waves_list_screen.dart';
+import '../../features/waves/screens/wave_chat_screen.dart';
+import '../../features/search/screens/search_screen.dart';
 import '../../shared/widgets/main_scaffold.dart';
 
 /// AURA Social – Router Configuration
@@ -150,6 +153,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final conversationId = state.pathParameters['conversationId']!;
           return ChatScreen(conversationId: conversationId);
         },
+      ),
+
+      // ── Waves (Person 3) ──
+      GoRoute(
+        path: '/waves',
+        builder: (context, state) => const WavesListScreen(),
+      ),
+      GoRoute(
+        path: '/wave/:waveId',
+        builder: (context, state) {
+          final waveId = state.pathParameters['waveId']!;
+          return WaveChatScreen(waveId: waveId);
+        },
+      ),
+
+      // ── Search (Person 3) ──
+      GoRoute(
+        path: '/search',
+        builder: (context, state) => const SearchScreen(),
       ),
     ],
   );

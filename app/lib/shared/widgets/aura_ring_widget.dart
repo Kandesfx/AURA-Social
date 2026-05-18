@@ -1,19 +1,28 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/emotion_gradients.dart';
 
-/// AURA Social – Aura Ring Widget
+/// AURA Social – Aura Ring Widget (v2 – Connected to EmotionProfileModel)
 ///
 /// Gradient ring quanh avatar, phản ánh cảm xúc của user.
 /// ★ Component visual cốt lõi của AURA Social.
 ///
-/// Usage:
+/// ### v2 improvements:
+/// - [confidence] → điều chỉnh độ dày ring (cao = dày hơn)
+/// - [arousal] → điều chỉnh tốc độ pulse (cao = nhanh hơn)
+/// - CachedNetworkImage thay vì Image.network
+/// - AnimatedSwitcher cho smooth transition khi emotion thay đổi
+///
+/// ### Usage:
 /// ```dart
 /// AuraRing(
 ///   size: 60,
 ///   imageUrl: user.avatarUrl,
-///   emotionVector: user.emotionVector,
+///   emotionVector: emotionProfile.currentEmotionVector,
+///   confidence: emotionProfile.emotionConfidence,
+///   arousal: emotionProfile.arousal,
 /// )
 /// ```
 class AuraRing extends StatefulWidget {
@@ -26,6 +35,8 @@ class AuraRing extends StatefulWidget {
     this.glowIntensity = 0.4,
     this.animate = true,
     this.child,
+    this.confidence = 0.5,
+    this.arousal = 0.3,
   });
 
   /// Kích thước tổng thể (bao gồm ring)
@@ -37,7 +48,7 @@ class AuraRing extends StatefulWidget {
   /// Emotion vector 8D – quyết định màu ring
   final Map<String, double>? emotionVector;
 
-  /// Độ dày ring (auto-calculated nếu null)
+  /// Độ dày ring (auto-calculated dựa trên confidence nếu null)
   final double? ringWidth;
 
   /// Cường độ glow effect (0.0 – 1.0)
@@ -49,21 +60,36 @@ class AuraRing extends StatefulWidget {
   /// Widget con thay thế cho avatar image
   final Widget? child;
 
+  /// Confidence score (0.0 – 1.0) → ảnh hưởng độ dày ring
+  /// Confidence cao = ring dày hơn = AI tự tin hơn về emotion
+  final double confidence;
+
+  /// Arousal score (0.0 – 1.0) → ảnh hưởng tốc độ pulse
+  /// Arousal cao = pulse nhanh hơn = trạng thái phấn khích
+  final double arousal;
+
   @override
   State<AuraRing> createState() => _AuraRingState();
 }
 
 class _AuraRingState extends State<AuraRing>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _pulseController;
-  late final Animation<double> _pulseAnimation;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
+    _setupAnimation();
+  }
+
+  void _setupAnimation() {
+    // Arousal ảnh hưởng tốc độ pulse: 0.0 → 3500ms, 1.0 → 1200ms
+    final durationMs = (3500 - (widget.arousal * 2300)).clamp(1200, 3500).toInt();
+
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
+      duration: Duration(milliseconds: durationMs),
     );
 
     _pulseAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
@@ -79,13 +105,27 @@ class _AuraRingState extends State<AuraRing>
   }
 
   @override
+  void didUpdateWidget(covariant AuraRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Cập nhật animation speed khi arousal thay đổi đáng kể
+    if ((oldWidget.arousal - widget.arousal).abs() > 0.1) {
+      _pulseController.dispose();
+      _setupAnimation();
+    }
+  }
+
+  @override
   void dispose() {
     _pulseController.dispose();
     super.dispose();
   }
 
-  double get _ringWidth =>
-      widget.ringWidth ?? (widget.size < 50 ? 2.5 : widget.size < 80 ? 3.5 : 4.5);
+  /// Ring width dựa trên confidence: 2px (low) → 5px (high)
+  double get _ringWidth {
+    if (widget.ringWidth != null) return widget.ringWidth!;
+    final base = widget.size < 50 ? 2.0 : widget.size < 80 ? 3.0 : 3.5;
+    return base + (widget.confidence * 2.0); // 2.0–5.5px range
+  }
 
   double get _glowRadius => widget.size < 50 ? 6 : 10;
 
@@ -153,10 +193,11 @@ class _AuraRingState extends State<AuraRing>
     if (widget.child != null) return widget.child!;
 
     if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
-      return Image.network(
-        widget.imageUrl!,
+      return CachedNetworkImage(
+        imageUrl: widget.imageUrl!,
         fit: BoxFit.cover,
-        errorBuilder: (_, e, st) => _defaultAvatar(),
+        placeholder: (_, __) => _defaultAvatar(),
+        errorWidget: (_, __, ___) => _defaultAvatar(),
       );
     }
     return _defaultAvatar();

@@ -10,6 +10,7 @@ import '../../features/soul_connect/screens/soul_connect_screen.dart';
 import '../../features/post/screens/create_post_screen.dart';
 import '../../features/post/screens/post_detail_screen.dart';
 import '../../features/chat/screens/conversations_list_screen.dart';
+import '../../features/chat/screens/chat_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
@@ -141,6 +142,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final userId = state.pathParameters['userId']!;
           return UserProfileScreen(userId: userId);
+        },
+      ),
+      GoRoute(
+        path: '/chat/:conversationId',
+        builder: (context, state) {
+          final conversationId = state.pathParameters['conversationId']!;
+          return ChatScreen(conversationId: conversationId);
         },
       ),
     ],

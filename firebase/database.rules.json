@@ -13,10 +13,10 @@
 
         "$messageId": {
           // Validate message structure
-          ".validate": "newData.hasChildren(['senderId', 'text', 'timestamp'])",
+          ".validate": "newData.hasChildren(['sender_id', 'content', 'timestamp'])",
 
-          "senderId": {
-            // senderId phải là chính người gửi
+          "sender_id": {
+            // sender_id phải là chính người gửi
             ".validate": "newData.val() === auth.uid"
           }
         }

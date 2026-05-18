@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -79,7 +80,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             _termsCheckbox(),
             const SizedBox(height: 24),
             _registerBtn(auth),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
+            _divider(),
+            const SizedBox(height: 20),
+            _googleBtn(auth),
+            const SizedBox(height: 24),
             _loginLink(),
             const SizedBox(height: 32),
           ])),
@@ -178,4 +183,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     Text('Đã có tài khoản?', style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textSecondary)),
     TextButton(onPressed: () => context.pop(), child: Text(' Đăng nhập', style: AuraTypography.labelLarge.copyWith(color: AuraColors.primary, fontWeight: FontWeight.w600))),
   ]).animate().fadeIn(delay: 950.ms);
+
+  Widget _divider() => Row(children: [
+    Expanded(child: Container(height: 1, color: AuraColors.surfaceBorder)),
+    Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('hoặc', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary))),
+    Expanded(child: Container(height: 1, color: AuraColors.surfaceBorder)),
+  ]).animate().fadeIn(delay: 870.ms);
+
+  Widget _googleBtn(AuthState auth) => SizedBox(
+    width: double.infinity, height: 52,
+    child: OutlinedButton.icon(
+      onPressed: auth.isLoading ? null : () async {
+        await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+        // Router tự redirect khi Firebase Auth state thay đổi
+      },
+      icon: SvgPicture.asset('assets/images/google_g_icon.svg', width: 22, height: 22),
+      label: Text('Đăng ký với Google', style: AuraTypography.labelLarge.copyWith(color: AuraColors.textPrimary)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: AuraColors.surfaceBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    ),
+  ).animate().fadeIn(delay: 900.ms);
 }

@@ -93,10 +93,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _handleSend(String text) {
     final conversations = ref.read(conversationsProvider);
-    final conversation = conversations.firstWhere(
-      (c) => c.id == widget.conversationId,
-      orElse: () => conversations.first,
-    );
+    ConversationModel? conversation;
+    for (final item in conversations) {
+      if (item.id == widget.conversationId) {
+        conversation = item;
+        break;
+      }
+    }
+
+    if (conversation == null || conversation.participants.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dang tai cuoc tro chuyen, thu lai sau mot chut.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     // Gửi message qua ChatService
     ref.read(sendMessageProvider).send(
@@ -340,7 +353,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: CircularProgressIndicator(
         color: AuraColors.primary,
         strokeWidth: 2,

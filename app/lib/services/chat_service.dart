@@ -24,6 +24,8 @@ class ChatService {
         _database = database ?? FirebaseDatabase.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
+  static const demoPeerId = 'aura_demo_peer';
+
   final FirebaseFirestore _firestore;
   final FirebaseDatabase _database;
   final FirebaseAuth _auth;
@@ -41,12 +43,14 @@ class ChatService {
     return _firestore
         .collection('conversations')
         .where('participants', arrayContains: userId)
-        .orderBy('updated_at', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final conversations = snapshot.docs
           .map((doc) => ConversationModel.fromFirestore(doc))
           .toList();
+
+      conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return conversations;
     });
   }
 
@@ -344,7 +348,15 @@ class ChatService {
     }
 
     final doc = await _firestore.collection('users').doc(userId).get();
-    final data = doc.data() ?? {};
+    final data = doc.data() ??
+        (userId == demoPeerId
+            ? {
+                'display_name': 'AURA Demo',
+                'username': 'aura_demo',
+                'aura_dominant_emotion': 'joy',
+                'emotion_vector': {'joy': 0.6, 'trust': 0.3},
+              }
+            : {});
     _userCache[userId] = data;
     return data;
   }

@@ -160,7 +160,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         // Bottom toolbar
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(color: AuraColors.surface, border: Border(top: BorderSide(color: AuraColors.surfaceBorder, width: .5))),
+          decoration: BoxDecoration(color: AuraColors.surface, border: Border(top: BorderSide(color: AuraColors.surfaceBorder, width: .5))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Cảm xúc (tùy chọn)', style: AuraTypography.labelMedium.copyWith(color: AuraColors.textTertiary)),
             const SizedBox(height: 10),

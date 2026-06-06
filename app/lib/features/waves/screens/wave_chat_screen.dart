@@ -314,7 +314,7 @@ class _WaveChatScreenState extends ConsumerState<WaveChatScreen> {
                 ),
                 const SizedBox(height: 16),
                 membersAsync.when(
-                  loading: () => const Center(
+                  loading: () => Center(
                     child: CircularProgressIndicator(
                       color: AuraColors.primary,
                     ),

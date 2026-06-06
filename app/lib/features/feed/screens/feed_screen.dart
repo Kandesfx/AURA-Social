@@ -96,7 +96,7 @@ class _FeedScreenState extends State<FeedScreen>
                       Container(
                         width: 6,
                         height: 6,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AuraColors.success,
                           shape: BoxShape.circle,
                         ),
@@ -116,7 +116,7 @@ class _FeedScreenState extends State<FeedScreen>
                 const SizedBox(width: 8),
                 // Notifications
                 IconButton(
-                  icon: const Badge(
+                  icon: Badge(
                     smallSize: 8,
                     backgroundColor: AuraColors.error,
                     child: Icon(Icons.notifications_outlined, size: 24),
@@ -287,7 +287,10 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
           }
 
           final delay = Duration(milliseconds: (index * 100).clamp(0, 500));
-          return PostCard(post: PostModel.fromMockMap(_posts[index]))
+          return PostCard(
+            post: PostModel.fromMockMap(_posts[index]),
+            persistReactionChanges: false,
+          )
               .animate()
               .fadeIn(duration: 400.ms, delay: delay)
               .slideY(begin: 0.05, duration: 400.ms, delay: delay);
@@ -405,7 +408,10 @@ class _FollowingTabState extends ConsumerState<_FollowingTab> {
         padding: const EdgeInsets.only(top: 8, bottom: 100),
         itemCount: _posts.length,
         itemBuilder: (context, index) {
-          return PostCard(post: PostModel.fromMockMap(_posts[index]))
+          return PostCard(
+            post: PostModel.fromMockMap(_posts[index]),
+            persistReactionChanges: false,
+          )
               .animate()
               .fadeIn(duration: 400.ms, delay: (index * 100).ms)
               .slideY(begin: 0.05, duration: 400.ms, delay: (index * 100).ms);

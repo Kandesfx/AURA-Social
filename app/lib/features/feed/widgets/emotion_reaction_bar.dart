@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
@@ -20,10 +21,12 @@ class EmotionReactionBar extends StatefulWidget {
     super.key,
     required this.postId,
     required this.reactions,
+    this.persistChanges = true,
   });
 
   final String postId;
   final Map<String, int> reactions;
+  final bool persistChanges;
 
   @override
   State<EmotionReactionBar> createState() => _EmotionReactionBarState();
@@ -38,7 +41,17 @@ class _EmotionReactionBarState extends State<EmotionReactionBar> {
   void initState() {
     super.initState();
     _localReactions = Map.from(widget.reactions);
-    _loadMyReaction();
+    if (widget.persistChanges) {
+      _loadMyReaction();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant EmotionReactionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!mapEquals(oldWidget.reactions, widget.reactions)) {
+      _localReactions = Map.from(widget.reactions);
+    }
   }
 
   /// Load reaction hiện tại của user từ Firestore
@@ -84,6 +97,11 @@ class _EmotionReactionBarState extends State<EmotionReactionBar> {
       }
     });
 
+    if (!widget.persistChanges) {
+      _processing = false;
+      return;
+    }
+
     try {
       final batch = FirebaseFirestore.instance.batch();
 
@@ -122,6 +140,13 @@ class _EmotionReactionBarState extends State<EmotionReactionBar> {
           _selectedEmotion = oldEmotion;
           _localReactions = Map.from(widget.reactions);
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Khong the cap nhat cam xuc: $e'),
+            backgroundColor: AuraColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
     _processing = false;

@@ -14,8 +14,14 @@ import 'emotion_reaction_bar.dart';
 /// Nhận [PostModel] thay vì mock data.
 /// Bao gồm: avatar+AuraRing, content, image, emotion reactions, comment count.
 class PostCard extends StatelessWidget {
-  const PostCard({super.key, required this.post});
+  const PostCard({
+    super.key,
+    required this.post,
+    this.persistReactionChanges = true,
+  });
+
   final PostModel post;
+  final bool persistReactionChanges;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +56,7 @@ class PostCard extends StatelessWidget {
                 style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary),
               ),
             ])),
-            IconButton(icon: const Icon(Icons.more_horiz, size: 20), color: AuraColors.textTertiary, onPressed: () {}),
+            IconButton(icon: Icon(Icons.more_horiz, size: 20), color: AuraColors.textTertiary, onPressed: () {}),
           ]),
         ),
 
@@ -73,9 +79,9 @@ class PostCard extends StatelessWidget {
                   imageUrl: post.mediaUrls.first,
                   fit: BoxFit.cover,
                   placeholder: (_, __) => Container(color: AuraColors.surfaceVariant,
-                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary))),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary))),
                   errorWidget: (_, __, ___) => Container(color: AuraColors.surfaceVariant,
-                    child: const Icon(Icons.image_not_supported_outlined, color: AuraColors.textTertiary, size: 40)),
+                    child: Icon(Icons.image_not_supported_outlined, color: AuraColors.textTertiary, size: 40)),
                 ),
               ),
             ),
@@ -87,6 +93,7 @@ class PostCard extends StatelessWidget {
           child: EmotionReactionBar(
             postId: post.postId,
             reactions: post.reactionsBreakdown,
+            persistChanges: persistReactionChanges,
           ),
         ),
 

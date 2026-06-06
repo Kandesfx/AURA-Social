@@ -40,7 +40,7 @@ class AuraLoadingWidget extends StatelessWidget {
                 ),
               ],
             ),
-            child: const CircularProgressIndicator(
+            child: CircularProgressIndicator(
               strokeWidth: 3,
               color: AuraColors.primary,
             ),

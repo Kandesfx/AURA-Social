@@ -27,7 +27,7 @@ class MainScaffold extends StatelessWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AuraColors.surface,
           border: Border(
             top: BorderSide(color: AuraColors.surfaceBorder, width: 0.5),
@@ -151,7 +151,7 @@ class _NavItem extends StatelessWidget {
                     top: -2,
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AuraColors.error,
                         shape: BoxShape.circle,
                       ),

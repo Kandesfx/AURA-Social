@@ -31,9 +31,15 @@ service cloud.firestore {
       // Ai cũng đọc được profile public
       allow read: if isAuthenticated();
 
-      // Chỉ chính chủ mới tạo/sửa profile của mình
+      // Chỉ chính chủ mới tạo profile của mình
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+
+      // Chính chủ sửa profile, hoặc user khác cập nhật followers_count/following_count khi follow
+      allow update: if isOwner(userId)
+                    || (isAuthenticated()
+                        && request.resource.data.diff(resource.data)
+                            .changedKeys()
+                            .hasOnly(['followers_count', 'following_count']));
 
       // Không ai được xóa user (chỉ Cloud Function xử lý)
       allow delete: if false;
@@ -42,14 +48,30 @@ service cloud.firestore {
       match /emotion_profile/{docId} {
         // Chỉ chính chủ đọc emotion profile của mình
         allow read: if isOwner(userId);
-        // Chỉ server (Cloud Functions) mới ghi
-        allow write: if false;
+        // Chỉ chính chủ hoặc Cloud Functions ghi
+        allow write: if isOwner(userId);
       }
 
       // ── Subcollection: Behavioral Events ──
       match /behavioral_events/{eventId} {
         // Chỉ chính chủ đọc/ghi events của mình
         allow read, write: if isOwner(userId);
+      }
+
+      // ── Subcollection: Followers ──
+      match /followers/{followerId} {
+        // Ai đăng nhập cũng đọc được danh sách followers (public)
+        allow read: if isAuthenticated();
+        // Chỉ người follow (followerId) mới ghi (tạo/xóa khi follow/unfollow)
+        allow write: if isOwner(followerId);
+      }
+
+      // ── Subcollection: Following ──
+      match /following/{targetUserId} {
+        // Ai đăng nhập cũng đọc được danh sách following (public)
+        allow read: if isAuthenticated();
+        // Chỉ chính chủ mới ghi (tạo/xóa khi follow/unfollow)
+        allow write: if isOwner(userId);
       }
 
       // ── Subcollection: Feed Cache ──
@@ -66,18 +88,34 @@ service cloud.firestore {
       // Ai đăng nhập cũng đọc được
       allow read: if isAuthenticated();
 
-      // Tạo post: phải login, authorId phải là mình
+      // Tạo post: phải login, user_id phải là mình
       allow create: if isAuthenticated()
-                    && request.resource.data.authorId == request.auth.uid;
+                    && request.resource.data.user_id == request.auth.uid;
 
-      // Sửa post: chỉ tác giả, không được đổi authorId
-      allow update: if isAuthenticated()
-                    && resource.data.authorId == request.auth.uid
-                    && isUnchanged('authorId');
+      // Client có thể cập nhật reaction/comment counters
+      allow update: if isAuthenticated();
 
       // Xóa post: chỉ tác giả
       allow delete: if isAuthenticated()
-                    && resource.data.authorId == request.auth.uid;
+                    && resource.data.user_id == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+
+        allow create: if isAuthenticated()
+                      && request.resource.data.user_id == request.auth.uid;
+
+        allow update: if isAuthenticated()
+                      && resource.data.user_id == request.auth.uid;
+
+        allow delete: if isAuthenticated()
+                      && resource.data.user_id == request.auth.uid;
+      }
+
+      match /reactions/{userId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isOwner(userId);
+      }
     }
 
     // ════════════════════════════════════════════
@@ -87,13 +125,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       allow create: if isAuthenticated()
-                    && request.resource.data.authorId == request.auth.uid;
+                    && request.resource.data.user_id == request.auth.uid;
 
       allow update: if isAuthenticated()
-                    && resource.data.authorId == request.auth.uid;
+                    && resource.data.user_id == request.auth.uid;
 
       allow delete: if isAuthenticated()
-                    && resource.data.authorId == request.auth.uid;
+                    && resource.data.user_id == request.auth.uid;
     }
 
     // ════════════════════════════════════════════

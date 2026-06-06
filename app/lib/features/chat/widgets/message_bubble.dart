@@ -106,7 +106,7 @@ class MessageBubble extends StatelessWidget {
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 200),
                 color: AuraColors.surfaceVariant,
-                child: const Center(
+                child: Center(
                   child: Icon(
                     Icons.image_rounded,
                     size: 48,

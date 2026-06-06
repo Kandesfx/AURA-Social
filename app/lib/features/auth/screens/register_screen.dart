@@ -35,7 +35,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreedTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Vui lòng đồng ý với Điều khoản dịch vụ'),
         backgroundColor: AuraColors.warning,
       ));
@@ -186,7 +186,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Widget _divider() => Row(children: [
     Expanded(child: Container(height: 1, color: AuraColors.surfaceBorder)),
-    Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('hoặc', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary))),
+    Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('hoặc', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary))),
     Expanded(child: Container(height: 1, color: AuraColors.surfaceBorder)),
   ]).animate().fadeIn(delay: 870.ms);
 

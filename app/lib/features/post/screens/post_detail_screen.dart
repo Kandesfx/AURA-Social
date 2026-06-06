@@ -81,7 +81,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           stream: FirebaseFirestore.instance.collection('posts').doc(widget.postId).snapshots(),
           builder: (context, postSnap) {
             if (!postSnap.hasData || !postSnap.data!.exists) {
-              return const Center(child: CircularProgressIndicator(color: AuraColors.primary));
+              return Center(child: CircularProgressIndicator(color: AuraColors.primary));
             }
 
             final post = PostModel.fromFirestore(postSnap.data!);
@@ -91,7 +91,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               SliverToBoxAdapter(child: _PostContent(post: post)),
 
               // Divider
-              const SliverToBoxAdapter(child: Divider(color: AuraColors.surfaceBorder, height: 1)),
+              SliverToBoxAdapter(child: Divider(color: AuraColors.surfaceBorder, height: 1)),
 
               // Comments header
               SliverToBoxAdapter(child: Padding(
@@ -133,7 +133,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         // Comment input
         Container(
           padding: EdgeInsets.fromLTRB(16, 8, 8, 8 + MediaQuery.of(context).padding.bottom),
-          decoration: const BoxDecoration(color: AuraColors.surface, border: Border(top: BorderSide(color: AuraColors.surfaceBorder, width: .5))),
+          decoration: BoxDecoration(color: AuraColors.surface, border: Border(top: BorderSide(color: AuraColors.surfaceBorder, width: .5))),
           child: Row(children: [
             Expanded(child: TextField(
               controller: _commentCtrl,
@@ -153,8 +153,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             IconButton(
               onPressed: _sending ? null : _addComment,
               icon: _sending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary))
-                : const Icon(Icons.send_rounded, color: AuraColors.primary),
+                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary))
+                : Icon(Icons.send_rounded, color: AuraColors.primary),
             ),
           ]),
         ),
@@ -187,7 +187,7 @@ class _PostContent extends StatelessWidget {
         ClipRRect(borderRadius: BorderRadius.circular(12),
           child: CachedNetworkImage(imageUrl: post.mediaUrls.first, width: double.infinity, fit: BoxFit.cover,
             placeholder: (_, __) => Container(height: 200, color: AuraColors.surfaceVariant),
-            errorWidget: (_, __, ___) => Container(height: 200, color: AuraColors.surfaceVariant, child: const Icon(Icons.image_not_supported, color: AuraColors.textTertiary)))),
+            errorWidget: (_, __, ___) => Container(height: 200, color: AuraColors.surfaceVariant, child: Icon(Icons.image_not_supported, color: AuraColors.textTertiary)))),
       ],
       const SizedBox(height: 12),
       EmotionReactionBar(postId: post.postId, reactions: post.reactionsBreakdown),

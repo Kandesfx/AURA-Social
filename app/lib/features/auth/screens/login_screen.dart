@@ -139,7 +139,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _divider() => Row(children: [
     Expanded(child: Container(height: 1, color: AuraColors.surfaceBorder)),
-    Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('hoặc', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary))),
+    Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('hoặc', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary))),
     Expanded(child: Container(height: 1, color: AuraColors.surfaceBorder)),
   ]).animate().fadeIn(delay: 700.ms);
 

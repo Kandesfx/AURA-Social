@@ -32,7 +32,7 @@ class EmotionGradients {
   /// Gradient dựa trên emotion vector (blend top 3 emotions)
   static SweepGradient fromVector(Map<String, double> emotionVector) {
     if (emotionVector.isEmpty) {
-      return const SweepGradient(
+      return SweepGradient(
         colors: [AuraColors.primary, AuraColors.secondary, AuraColors.primary],
       );
     }
@@ -62,7 +62,7 @@ class EmotionGradients {
   }
 
   /// Gradient mặc định (khi chưa có dữ liệu)
-  static const SweepGradient defaultAuraGradient = SweepGradient(
+  static SweepGradient defaultAuraGradient = SweepGradient(
     colors: [
       AuraColors.primary,
       AuraColors.secondary,

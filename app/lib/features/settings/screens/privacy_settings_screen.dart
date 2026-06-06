@@ -161,7 +161,7 @@ class PrivacySettingsScreen extends StatelessWidget {
         color: AuraColors.textPrimary)),
       subtitle: Text(subtitle, style: AuraTypography.bodySmall.copyWith(
         color: AuraColors.textTertiary)),
-      trailing: const Icon(Icons.chevron_right_rounded,
+      trailing: Icon(Icons.chevron_right_rounded,
           color: AuraColors.textTertiary, size: 20),
     );
   }

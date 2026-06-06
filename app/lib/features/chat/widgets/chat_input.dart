@@ -69,7 +69,7 @@ class _ChatInputState extends State<ChatInput>
     return Container(
       decoration: BoxDecoration(
         color: AuraColors.surface,
-        border: const Border(
+        border: Border(
           top: BorderSide(color: AuraColors.surfaceBorder, width: 0.5),
         ),
         boxShadow: [

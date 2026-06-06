@@ -77,16 +77,14 @@ class _ConversationsListScreenState
               ),
               child: const Icon(Icons.edit_rounded, size: 18),
             ),
-            onPressed: () {
-              // TODO: new conversation
-            },
+            onPressed: () => context.push('/search'),
           ),
           const SizedBox(width: 4),
         ],
       ),
       body: asyncConversations.when(
         // ── Loading State ──
-        loading: () => const Center(
+        loading: () => Center(
           child: CircularProgressIndicator(
             color: AuraColors.primary,
             strokeWidth: 2,
@@ -170,14 +168,14 @@ class _ConversationsListScreenState
                       hintStyle: AuraTypography.bodyMedium.copyWith(
                         color: AuraColors.textTertiary,
                       ),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.search_rounded,
                         color: AuraColors.textTertiary,
                         size: 20,
                       ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.close_rounded,
                                 color: AuraColors.textTertiary,
                                 size: 18,
@@ -234,7 +232,7 @@ class _ConversationsListScreenState
                                     horizontal: 24),
                                 color: AuraColors.error
                                     .withValues(alpha: 0.15),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.delete_outline_rounded,
                                   color: AuraColors.error,
                                 ),
@@ -325,9 +323,9 @@ class _ConversationsListScreenState
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => context.go('/soul'),
-            icon: const Icon(Icons.favorite_rounded, size: 18),
-            label: const Text('Soul Connect'),
+            onPressed: () => context.push('/search'),
+            icon: const Icon(Icons.search_rounded, size: 18),
+            label: const Text('Tim nguoi dung'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AuraColors.primary,
               foregroundColor: Colors.white,

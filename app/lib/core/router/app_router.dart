@@ -20,6 +20,7 @@ import '../../features/settings/screens/privacy_settings_screen.dart';
 import '../../features/compass/screens/emotional_compass_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
+import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/waves/screens/waves_list_screen.dart';
 import '../../features/waves/screens/wave_chat_screen.dart';
 import '../../features/search/screens/search_screen.dart';
@@ -158,6 +159,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final userId = state.pathParameters['userId']!;
           return UserProfileScreen(userId: userId);
+        },
+      ),
+      GoRoute(
+        path: '/user/:userId/follows/:type',
+        builder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          final type = state.pathParameters['type']!;
+          return FollowListScreen(userId: userId, type: type);
         },
       ),
       GoRoute(

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/theme/app_colors.dart';
 
 /// AURA Social – Settings Provider
 ///
@@ -56,8 +57,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt('theme_mode') ?? 2; // default dark
+    final mode = ThemeMode.values[themeIndex];
+    AuraColors.themeMode = mode;
     state = SettingsState(
-      themeMode: ThemeMode.values[themeIndex],
+      themeMode: mode,
       notificationsEnabled: prefs.getBool('notif_enabled') ?? true,
       emotionalAnalysis: prefs.getBool('ai_emotional') ?? true,
       behavioralTracking: prefs.getBool('ai_behavioral') ?? true,
@@ -71,6 +74,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(themeMode: mode);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme_mode', mode.index);
+    AuraColors.themeMode = mode; // Đồng bộ với hệ thống màu
   }
 
   Future<void> setNotificationsEnabled(bool value) async {

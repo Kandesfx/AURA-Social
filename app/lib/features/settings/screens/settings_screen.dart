@@ -83,7 +83,7 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'Cài đặt AI',
                 subtitle: 'Quản lý các tính năng AI',
                 onTap: () => context.push('/settings/ai'),
-                trailing: const Icon(Icons.chevron_right_rounded,
+                trailing: Icon(Icons.chevron_right_rounded,
                     color: AuraColors.textTertiary, size: 20),
               ),
               _divider(),
@@ -93,7 +93,7 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'Quyền riêng tư',
                 subtitle: 'Dữ liệu, xuất & xóa tài khoản',
                 onTap: () => context.push('/settings/privacy'),
-                trailing: const Icon(Icons.chevron_right_rounded,
+                trailing: Icon(Icons.chevron_right_rounded,
                     color: AuraColors.textTertiary, size: 20),
               ),
             ],
@@ -240,7 +240,7 @@ class SettingsScreen extends ConsumerWidget {
               ? 'Sáng'
               : 'Tự động',
       onTap: () => _showThemeDialog(context, ref, settings),
-      trailing: const Icon(Icons.chevron_right_rounded,
+      trailing: Icon(Icons.chevron_right_rounded,
           color: AuraColors.textTertiary, size: 20),
     );
   }

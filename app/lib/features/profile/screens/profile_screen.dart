@@ -50,7 +50,7 @@ class ProfileScreen extends ConsumerWidget {
             },
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'settings', child: Row(children: [Icon(Icons.settings_outlined, size: 18), SizedBox(width: 8), Text('Cài đặt')])),
-              const PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 18, color: AuraColors.error), SizedBox(width: 8), Text('Đăng xuất', style: TextStyle(color: AuraColors.error))])),
+              PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 18, color: AuraColors.error), SizedBox(width: 8), Text('Đăng xuất', style: TextStyle(color: AuraColors.error))])),
             ],
           ),
         ],
@@ -97,9 +97,17 @@ class ProfileScreen extends ConsumerWidget {
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 _StatItem(count: _fmtCount(user.postsCount), label: 'Posts'),
                 _divider(),
-                _StatItem(count: _fmtCount(user.followersCount), label: 'Followers'),
+                _StatItem(
+                  count: _fmtCount(user.followersCount), 
+                  label: 'Followers',
+                  onTap: () => context.push('/user/${user.uid}/follows/followers'),
+                ),
                 _divider(),
-                _StatItem(count: _fmtCount(user.followingCount), label: 'Following'),
+                _StatItem(
+                  count: _fmtCount(user.followingCount), 
+                  label: 'Following',
+                  onTap: () => context.push('/user/${user.uid}/follows/following'),
+                ),
                 _divider(),
                 _StatItem(count: _fmtCount(user.connectionsCount), label: 'Soul'),
               ]),
@@ -219,7 +227,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  static Widget _divider() => Container(height: 28, width: 1, margin: const EdgeInsets.symmetric(horizontal: 20), color: AuraColors.surfaceBorder);
+  static Widget _divider() => Container(height: 28, width: 1, margin: EdgeInsets.symmetric(horizontal: 20), color: AuraColors.surfaceBorder);
   static String _fmtCount(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
@@ -285,16 +293,20 @@ class _PostGrid extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('posts')
           .where('user_id', isEqualTo: userId)
-          .where('status', isEqualTo: 'active')
-          .orderBy('created_at', descending: true)
-          .limit(30)
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: AuraColors.primary)));
+          return Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: AuraColors.primary)));
+        }
+        
+        if (snap.hasError) {
+          return Padding(padding: const EdgeInsets.all(16), child: Text('Error: ${snap.error}', style: TextStyle(color: Colors.red)));
         }
 
-        final posts = snap.data?.docs.map((d) => PostModel.fromFirestore(d)).toList() ?? [];
+        var posts = snap.data?.docs.map((d) => PostModel.fromFirestore(d)).toList() ?? [];
+        posts = posts.where((p) => p.status == 'active').toList();
+        posts.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
+        if (posts.length > 30) posts = posts.sublist(0, 30);
 
         if (posts.isEmpty) {
           return Padding(padding: const EdgeInsets.all(32), child: Center(
@@ -351,16 +363,21 @@ class _PostGrid extends StatelessWidget {
 }
 
 class _StatItem extends StatelessWidget {
-  const _StatItem({required this.count, required this.label});
+  const _StatItem({required this.count, required this.label, this.onTap});
   final String count;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      Text(count, style: AuraTypography.headlineSmall.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 2),
-      Text(label, style: AuraTypography.labelSmall.copyWith(color: AuraColors.textTertiary)),
-    ]);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(children: [
+        Text(count, style: AuraTypography.headlineSmall.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Text(label, style: AuraTypography.labelSmall.copyWith(color: AuraColors.textTertiary)),
+      ]),
+    );
   }
 }

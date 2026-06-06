@@ -44,6 +44,17 @@ final currentUserProfileProvider = StreamProvider<UserModel?>((ref) {
   });
 });
 
+/// Stream danh sách followers / following của một user.
+/// [type] phải là 'followers' hoặc 'following'
+final followListProvider = StreamProvider.family<List<String>, ({String uid, String type})>((ref, arg) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(arg.uid)
+      .collection(arg.type)
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+});
+
 /// Provider để cập nhật user profile.
 ///
 /// Cung cấp methods để update Firestore document.
@@ -98,6 +109,12 @@ class UserProfileService {
         .collection('following')
         .doc(targetUid);
 
+    final followerRef = _firestore
+        .collection('users')
+        .doc(targetUid)
+        .collection('followers')
+        .doc(myUid);
+
     final doc = await followRef.get();
     final isFollowing = doc.exists;
 
@@ -106,6 +123,7 @@ class UserProfileService {
     if (isFollowing) {
       // Unfollow
       batch.delete(followRef);
+      batch.delete(followerRef);
       batch.update(_firestore.collection('users').doc(myUid), {
         'following_count': FieldValue.increment(-1),
       });
@@ -115,6 +133,9 @@ class UserProfileService {
     } else {
       // Follow
       batch.set(followRef, {
+        'followed_at': FieldValue.serverTimestamp(),
+      });
+      batch.set(followerRef, {
         'followed_at': FieldValue.serverTimestamp(),
       });
       batch.update(_firestore.collection('users').doc(myUid), {

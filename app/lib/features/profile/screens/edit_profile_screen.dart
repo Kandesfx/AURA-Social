@@ -101,7 +101,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Đã cập nhật hồ sơ! ✅'),
           backgroundColor: AuraColors.success,
         ));

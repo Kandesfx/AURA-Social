@@ -100,7 +100,7 @@ class NotificationsScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Container(width: 8, height: 8,
-                      decoration: const BoxDecoration(color: AuraColors.primary, shape: BoxShape.circle)),
+                      decoration: BoxDecoration(color: AuraColors.primary, shape: BoxShape.circle)),
                   const SizedBox(width: 10),
                   Text('${state.unreadCount} thông báo chưa đọc',
                       style: AuraTypography.labelMedium.copyWith(color: AuraColors.primary)),

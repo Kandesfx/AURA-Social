@@ -118,9 +118,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 _StatItem(count: _fmt(user.postsCount), label: 'Posts'),
                 _divider(),
-                _StatItem(count: _fmt(user.followersCount), label: 'Followers'),
+                _StatItem(
+                  count: _fmt(user.followersCount), 
+                  label: 'Followers',
+                  onTap: () => context.push('/user/${user.uid}/follows/followers'),
+                ),
                 _divider(),
-                _StatItem(count: _fmt(user.followingCount), label: 'Following'),
+                _StatItem(
+                  count: _fmt(user.followingCount), 
+                  label: 'Following',
+                  onTap: () => context.push('/user/${user.uid}/follows/following'),
+                ),
               ]),
 
               const SizedBox(height: 20),
@@ -130,13 +138,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Row(children: [
                   Expanded(child: _loadingFollow
-                    ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary)))
+                    ? Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary)))
                     : SizedBox(height: 44, child: _isFollowing
                       ? OutlinedButton(
                           onPressed: _togglingFollow ? null : _toggleFollow,
                           style: OutlinedButton.styleFrom(side: BorderSide(color: AuraColors.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                           child: _togglingFollow
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary))
+                            ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary))
                             : Text('Đang follow', style: AuraTypography.labelLarge.copyWith(color: AuraColors.primary)),
                         )
                       : FilledButton(
@@ -188,7 +196,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     );
   }
 
-  static Widget _divider() => Container(height: 28, width: 1, margin: const EdgeInsets.symmetric(horizontal: 20), color: AuraColors.surfaceBorder);
+  static Widget _divider() => Container(height: 28, width: 1, margin: EdgeInsets.symmetric(horizontal: 20), color: AuraColors.surfaceBorder);
   static String _fmt(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
@@ -205,17 +213,19 @@ class _UserPostGrid extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('posts')
           .where('user_id', isEqualTo: userId)
-          .where('status', isEqualTo: 'active')
-          .orderBy('created_at', descending: true)
-          .limit(30)
           .snapshots(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: AuraColors.primary)));
+          return Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator(color: AuraColors.primary)));
         }
-        final posts = snap.data?.docs.map((d) => PostModel.fromFirestore(d)).toList() ?? [];
+        
+        var posts = snap.data?.docs.map((d) => PostModel.fromFirestore(d)).toList() ?? [];
+        posts = posts.where((p) => p.status == 'active').toList();
+        posts.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
+        if (posts.length > 30) posts = posts.sublist(0, 30);
+        
         if (posts.isEmpty) {
-          return Padding(padding: const EdgeInsets.all(32), child: Center(child: Text('Chưa có bài viết', style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textTertiary))));
+          return Padding(padding: EdgeInsets.all(32), child: Center(child: Text('Chưa có bài viết', style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textTertiary))));
         }
 
         return Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -247,13 +257,20 @@ class _UserPostGrid extends StatelessWidget {
 }
 
 class _StatItem extends StatelessWidget {
-  const _StatItem({required this.count, required this.label});
+  const _StatItem({required this.count, required this.label, this.onTap});
   final String count; final String label;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Column(children: [
-    Text(count, style: AuraTypography.headlineSmall.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w700)),
-    const SizedBox(height: 2),
-    Text(label, style: AuraTypography.labelSmall.copyWith(color: AuraColors.textTertiary)),
-  ]);
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(children: [
+        Text(count, style: AuraTypography.headlineSmall.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 2),
+        Text(label, style: AuraTypography.labelSmall.copyWith(color: AuraColors.textTertiary)),
+      ]),
+    );
+  }
 }

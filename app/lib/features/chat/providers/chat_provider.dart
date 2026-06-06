@@ -85,6 +85,24 @@ class ConversationActions {
     final userId = _ref.read(currentUserIdProvider);
     return _chatService.getOrCreateConversation(userId, peerId);
   }
+
+  Future<ConversationModel> createDemoConversation() async {
+    final userId = _ref.read(currentUserIdProvider);
+    final conversation = await _chatService.getOrCreateConversation(
+      userId,
+      ChatService.demoPeerId,
+    );
+
+    if (conversation.lastMessage == null) {
+      await _chatService.sendMessage(
+        conversationId: conversation.id,
+        content: 'Xin chao! Day la tin nhan demo cua AURA.',
+        participants: conversation.participants,
+      );
+    }
+
+    return conversation;
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

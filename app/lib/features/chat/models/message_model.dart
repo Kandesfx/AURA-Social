@@ -50,12 +50,13 @@ class MessageModel {
       content: json['content'] as String? ?? '',
       type: MessageType.fromString(json['type'] as String? ?? 'text'),
       timestamp: DateTime.fromMillisecondsSinceEpoch(
-        json['timestamp'] as int? ?? 0,
+        (json['timestamp'] as num?)?.toInt() ?? 0,
       ),
-      readBy: (json['read_by'] as Map<String, dynamic>?)?.map(
-            (key, value) => MapEntry(key, value as bool),
-          ) ??
-          {},
+      readBy: json['read_by'] != null
+          ? Map.from(json['read_by'] as Map).map(
+              (key, value) => MapEntry(key.toString(), value == true),
+            )
+          : {},
       aiSentiment: json['ai_sentiment'] as String?,
     );
   }

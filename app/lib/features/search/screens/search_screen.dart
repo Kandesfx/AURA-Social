@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/models/user_model.dart';
 import '../widgets/user_tile.dart';
 
 /// AURA Social – Search Screen
@@ -48,15 +52,22 @@ class _MockUser {
 /// Search Provider
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-final searchResultsProvider = Provider<List<_MockUser>>((ref) {
-  final query = ref.watch(searchQueryProvider).toLowerCase();
-  if (query.isEmpty) return [];
-  return _mockUsers
-      .where((u) =>
-          u.name.toLowerCase().contains(query) ||
-          u.bio.toLowerCase().contains(query) ||
-          u.dominantEmotion.toLowerCase().contains(query))
-      .toList();
+final searchableUsersProvider = StreamProvider<List<UserModel>>((ref) {
+  final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .limit(50)
+      .snapshots()
+      .map((snapshot) {
+    final users = snapshot.docs
+        .where((doc) => doc.id != currentUid)
+        .map((doc) => UserModel.fromFirestore(doc))
+        .toList();
+
+    users.sort((a, b) => a.displayName.compareTo(b.displayName));
+    return users;
+  });
 });
 
 /// Search Screen
@@ -89,7 +100,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final query = ref.watch(searchQueryProvider);
-    final results = ref.watch(searchResultsProvider);
+    final usersAsync = ref.watch(searchableUsersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -120,7 +131,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               hintStyle: AuraTypography.bodyMedium.copyWith(
                 color: AuraColors.textTertiary,
               ),
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.search_rounded,
                 size: 20,
                 color: AuraColors.textTertiary,
@@ -143,15 +154,69 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ),
       ),
-      body: query.isEmpty
-          ? _buildSuggestions()
-          : results.isEmpty
-              ? _buildNoResults(query)
-              : _buildResults(results),
+      body: usersAsync.when(
+        loading: () => Center(
+          child: CircularProgressIndicator(
+            color: AuraColors.primary,
+            strokeWidth: 2,
+          ),
+        ),
+        error: (error, _) => _buildLoadError(error),
+        data: (users) {
+          final results = query.isEmpty
+              ? <UserModel>[]
+              : users.where((u) {
+                  final q = query.toLowerCase();
+                  return u.displayName.toLowerCase().contains(q) ||
+                      u.username.toLowerCase().contains(q) ||
+                      (u.bio ?? '').toLowerCase().contains(q) ||
+                      u.auraDominantEmotion.toLowerCase().contains(q);
+                }).toList();
+
+          return query.isEmpty
+              ? _buildSuggestions(users)
+              : results.isEmpty
+                  ? _buildNoResults(query)
+                  : _buildResults(results);
+        },
+      ),
     );
   }
 
-  Widget _buildSuggestions() {
+  Widget _buildLoadError(Object error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: AuraColors.error.withValues(alpha: 0.7),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Khong the tai nguoi dung',
+              style: AuraTypography.titleMedium.copyWith(
+                color: AuraColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error.toString(),
+              textAlign: TextAlign.center,
+              style: AuraTypography.bodySmall.copyWith(
+                color: AuraColors.textTertiary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestions(List<UserModel> users) {
     return ListView(
       padding: const EdgeInsets.only(top: 16),
       children: [
@@ -227,17 +292,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ),
 
-        ..._mockUsers.take(5).toList().asMap().entries.map((entry) {
+        if (users.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              'Chua co nguoi dung khac de hien thi',
+              textAlign: TextAlign.center,
+              style: AuraTypography.bodyMedium.copyWith(
+                color: AuraColors.textTertiary,
+              ),
+            ),
+          )
+        else
+          ...users.take(8).toList().asMap().entries.map((entry) {
           final index = entry.key;
           final user = entry.value;
           return UserSearchTile(
-            displayName: user.name,
+            displayName: user.displayName,
             bio: user.bio,
-            emotionVector: user.emotionVector,
-            dominantEmotion: user.dominantEmotion,
+            avatarUrl: user.avatarUrl,
+            emotionVector: {user.auraDominantEmotion: 0.7},
+            dominantEmotion: user.auraDominantEmotion,
             isOnline: user.isOnline,
             onTap: () {
-              // TODO: Navigate to user profile
+              context.push('/user/${user.uid}');
             },
           ).animate(delay: Duration(milliseconds: 200 + index * 60))
               .fadeIn(duration: 300.ms)
@@ -247,20 +325,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResults(List<_MockUser> results) {
+  Widget _buildResults(List<UserModel> results) {
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8),
       itemCount: results.length,
       itemBuilder: (context, index) {
         final user = results[index];
         return UserSearchTile(
-          displayName: user.name,
+          displayName: user.displayName,
           bio: user.bio,
-          emotionVector: user.emotionVector,
-          dominantEmotion: user.dominantEmotion,
+          avatarUrl: user.avatarUrl,
+          emotionVector: {user.auraDominantEmotion: 0.7},
+          dominantEmotion: user.auraDominantEmotion,
           isOnline: user.isOnline,
           onTap: () {
-            // TODO: Navigate to user profile
+            context.push('/user/${user.uid}');
           },
         ).animate(delay: Duration(milliseconds: index * 50))
             .fadeIn(duration: 250.ms);

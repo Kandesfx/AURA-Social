@@ -73,7 +73,7 @@ class AuraRing extends StatefulWidget {
 }
 
 class _AuraRingState extends State<AuraRing>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 

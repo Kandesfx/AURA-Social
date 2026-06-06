@@ -148,7 +148,7 @@ class SoulConnectScreen extends ConsumerWidget {
               color: AuraColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(20),
               child: CircularProgressIndicator(
                 strokeWidth: 3,

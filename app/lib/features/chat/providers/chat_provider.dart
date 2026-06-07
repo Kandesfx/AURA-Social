@@ -103,6 +103,11 @@ class ConversationActions {
 
     return conversation;
   }
+
+  /// Xóa cuộc trò chuyện
+  Future<void> deleteConversation(String conversationId) async {
+    await _chatService.deleteConversation(conversationId);
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

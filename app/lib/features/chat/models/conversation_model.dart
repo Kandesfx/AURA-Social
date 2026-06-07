@@ -88,17 +88,20 @@ class ConversationModel {
   /// Từ Firestore document
   factory ConversationModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
+    final rawLastMessage = data['last_message'];
+    final rawUnreadCounts = data['unread_counts'];
     return ConversationModel(
       id: doc.id,
       type: ConversationType.fromString(data['type'] as String? ?? 'direct'),
       participants: List<String>.from(data['participants'] ?? []),
-      lastMessage: data['last_message'] != null
-          ? LastMessage.fromMap(data['last_message'] as Map<String, dynamic>)
+      lastMessage: rawLastMessage is Map
+          ? LastMessage.fromMap(Map<String, dynamic>.from(rawLastMessage))
           : null,
-      unreadCounts: (data['unread_counts'] as Map<String, dynamic>?)?.map(
-            (key, value) => MapEntry(key, value as int),
-          ) ??
-          {},
+      unreadCounts: rawUnreadCounts is Map
+          ? Map<String, dynamic>.from(rawUnreadCounts).map(
+                (key, value) => MapEntry(key, value as int),
+              )
+          : {},
       soulConnectionId: data['soul_connection_id'] as String?,
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),

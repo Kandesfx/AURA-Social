@@ -7,6 +7,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/onboarding_screen.dart';
 import '../../features/feed/screens/feed_screen.dart';
+import '../../features/feed/models/post_model.dart';
 import '../../features/soul_connect/screens/soul_connect_screen.dart';
 import '../../features/post/screens/create_post_screen.dart';
 import '../../features/post/screens/post_detail_screen.dart';
@@ -121,7 +122,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // ── Fullscreen Routes (no bottom nav) ──
       GoRoute(
         path: '/create-post',
-        builder: (context, state) => const CreatePostScreen(),
+        builder: (context, state) {
+          final post = state.extra as PostModel?;
+          return CreatePostScreen(postToEdit: post);
+        },
       ),
       GoRoute(
         path: '/notifications',

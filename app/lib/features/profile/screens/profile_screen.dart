@@ -150,15 +150,15 @@ class ProfileScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 Text(
-                                  '🎯 Anticipation',
+                                  '${_getEmoji(emotion?.dominantEmotion ?? 'explore')} ${_capitalize(emotion?.dominantEmotion ?? 'explore')}',
                                   style: AuraTypography.bodySmall.copyWith(
-                                    color: AuraColors.emotionAnticipation,
+                                    color: AuraColors.getEmotionColor(emotion?.dominantEmotion ?? 'explore'),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  '📊 78%',
+                                  '📊 ${( (emotion?.emotionConfidence ?? 0.5) * 100 ).round()}%',
                                   style: AuraTypography.bodySmall.copyWith(
                                     color: AuraColors.textSecondary,
                                   ),
@@ -217,6 +217,16 @@ class ProfileScreen extends ConsumerWidget {
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
     return n.toString();
   }
+
+  static String _getEmoji(String emotion) {
+    const map = {
+      'joy': '😊', 'trust': '🤝', 'anticipation': '🎯', 'surprise': '😮',
+      'sadness': '😢', 'fear': '😰', 'anger': '😠', 'disgust': '🤢',
+    };
+    return map[emotion] ?? '🧭';
+  }
+
+  static String _capitalize(String s) => s.isEmpty ? '' : s[0].toUpperCase() + s.substring(1);
 }
 
 /// Emotional Compass card – hiển thị dominant emotion + confidence + mode

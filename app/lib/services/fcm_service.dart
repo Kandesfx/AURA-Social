@@ -1,5 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 /// AURA Social – FCM Service
 ///
@@ -46,6 +48,11 @@ class FCMService {
     // Get FCM token
     _fcmToken = await _messaging.getToken();
     debugPrint('[FCM] Token: $_fcmToken');
+    
+    // Save token if user is already logged in
+    if (_fcmToken != null) {
+      await _saveTokenToFirestore(_fcmToken!);
+    }
 
     // Listen for token refresh
     _messaging.onTokenRefresh.listen((newToken) {
@@ -99,8 +106,24 @@ class FCMService {
   }
 
   void _onTokenRefresh(String newToken) {
-    // TODO: Gửi token mới lên Firestore users/{uid}/fcm_tokens
     debugPrint('[FCM] Token refreshed: $newToken');
+    _saveTokenToFirestore(newToken);
+  }
+
+  /// Helper gửi token lên Firestore users/{uid}
+  Future<void> _saveTokenToFirestore(String token) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update({'fcm_token': token});
+        debugPrint('[FCM] Token saved to Firestore for user: $uid');
+      }
+    } catch (e) {
+      debugPrint('[FCM] Error saving token to Firestore: $e');
+    }
   }
 
   // ── Callbacks ──

@@ -1,36 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
 import '../widgets/emotion_radar_chart.dart';
 import '../widgets/emotion_timeline.dart';
 import '../widgets/ai_insight_card.dart';
+import '../../../providers/emotion_profile_provider.dart';
+import '../../../shared/models/emotion_profile_model.dart';
 
 /// AURA Social – Emotional Compass Screen
 ///
 /// Person 4, Task #12
 /// Full emotional profile view: radar chart, 7-day timeline, AI insights.
-class EmotionalCompassScreen extends StatelessWidget {
+class EmotionalCompassScreen extends ConsumerWidget {
   const EmotionalCompassScreen({super.key});
 
-  // Mock data
-  static const _emotionVector = {
-    'joy': 0.30,
-    'trust': 0.20,
-    'anticipation': 0.25,
-    'surprise': 0.10,
-    'sadness': 0.05,
-    'fear': 0.04,
-    'anger': 0.03,
-    'disgust': 0.03,
-  };
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final emotionProfileAsync = ref.watch(currentEmotionProfileProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emotional Compass'),
+        title: const Text('La bàn cảm xúc'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
           onPressed: () => Navigator.of(context).pop(),
@@ -42,56 +35,82 @@ class EmotionalCompassScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 60),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-
-            // ── Current Mood Header ──
-            _buildMoodHeader()
-                .animate().fadeIn(duration: 500.ms).slideY(begin: -0.05),
-
-            const SizedBox(height: 24),
-
-            // ── Radar Chart ──
-            _buildRadarSection()
-                .animate().fadeIn(duration: 500.ms, delay: 100.ms)
-                .scale(begin: const Offset(0.9, 0.9), duration: 500.ms, curve: Curves.easeOutBack),
-
-            const SizedBox(height: 24),
-
-            // ── Emotion Breakdown ──
-            _buildEmotionBreakdown()
-                .animate().fadeIn(duration: 400.ms, delay: 200.ms),
-
-            const SizedBox(height: 24),
-
-            // ── 7-Day Timeline ──
-            _buildTimelineSection()
-                .animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.05),
-
-            const SizedBox(height: 24),
-
-            // ── AI Insight ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: const AIInsightCard(
-                insight: 'Bạn thường vui vào cuối tuần và stressed vào T3-T4. '
-                    'Hoạt động thể chất giúp tăng mood của bạn đáng kể.',
-                suggestion: 'Hãy thử dành 15 phút tập thể dục vào buổi sáng T3-T4',
-                wellbeingScore: 72,
-              ),
-            ).animate().fadeIn(duration: 400.ms, delay: 400.ms).slideY(begin: 0.05),
-          ],
+      body: emotionProfileAsync.when(
+        data: (profile) => _buildContent(context, profile),
+        loading: () => const Center(
+          child: CircularProgressIndicator(),
         ),
+        error: (error, stackTrace) => _buildContent(context, const EmotionProfileModel()),
       ),
     );
   }
 
-  Widget _buildMoodHeader() {
+  Widget _buildContent(BuildContext context, EmotionProfileModel profile) {
+    final emotionVector = profile.currentEmotionVector.isEmpty
+        ? EmotionProfileModel.defaultVector
+        : profile.currentEmotionVector;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 60),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+
+          // ── Current Mood Header ──
+          _buildMoodHeader(profile, emotionVector)
+              .animate().fadeIn(duration: 500.ms).slideY(begin: -0.05),
+
+          const SizedBox(height: 24),
+
+          // ── Radar Chart ──
+          _buildRadarSection(emotionVector)
+              .animate().fadeIn(duration: 500.ms, delay: 100.ms)
+              .scale(begin: const Offset(0.9, 0.9), duration: 500.ms, curve: Curves.easeOutBack),
+
+          const SizedBox(height: 24),
+
+          // ── Emotion Breakdown ──
+          _buildEmotionBreakdown(emotionVector)
+              .animate().fadeIn(duration: 400.ms, delay: 200.ms),
+
+          const SizedBox(height: 24),
+
+          // ── 7-Day Timeline ──
+          _buildTimelineSection(profile)
+              .animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.05),
+
+          const SizedBox(height: 24),
+
+          // ── AI Insight ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: AIInsightCard(
+              insight: profile.weeklyTrend['insight_summary'] ?? 
+                  'Bạn thường vui vào cuối tuần và stressed vào T3-T4. Hoạt động thể chất giúp tăng mood của bạn đáng kể.',
+              suggestion: profile.weeklyTrend['suggestion'] ?? 
+                  'Hãy thử dành 15 phút tập thể dục vào buổi sáng T3-T4',
+              wellbeingScore: _calculateWellbeingScore(profile),
+            ),
+          ).animate().fadeIn(duration: 400.ms, delay: 400.ms).slideY(begin: 0.05),
+        ],
+      ),
+    );
+  }
+
+  int _calculateWellbeingScore(EmotionProfileModel profile) {
+    if (profile.weeklyTrend.containsKey('wellbeing_score')) {
+      return (profile.weeklyTrend['wellbeing_score'] as num).toInt();
+    }
+    // Calculate fallback score from stability_score and avg_valence
+    final stability = (profile.weeklyTrend['stability_score'] ?? 0.7) as num;
+    final avgValence = (profile.weeklyTrend['avg_valence'] ?? 0.35) as num;
+    final score = (50 + (avgValence * 30) + (stability * 20)).round().clamp(0, 100);
+    return score;
+  }
+
+  Widget _buildMoodHeader(EmotionProfileModel profile, Map<String, double> emotionVector) {
     // Find dominant emotion
-    final sorted = _emotionVector.entries.toList()
+    final sorted = emotionVector.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final dominant = sorted.first;
     final dominantColor = AuraColors.getEmotionColor(dominant.key);
@@ -115,7 +134,9 @@ class EmotionalCompassScreen extends StatelessWidget {
         children: [
           AuraRing(
             size: 60,
-            emotionVector: _emotionVector,
+            emotionVector: emotionVector,
+            confidence: profile.emotionConfidence,
+            arousal: profile.arousal,
             glowIntensity: 0.5,
           ),
           const SizedBox(width: 14),
@@ -136,7 +157,7 @@ class EmotionalCompassScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '🧭 explore',
+                        '🧭 ${profile.emotionalMode}',
                         style: AuraTypography.labelSmall.copyWith(color: dominantColor),
                       ),
                     ),
@@ -155,13 +176,23 @@ class EmotionalCompassScreen extends StatelessWidget {
                   children: [
                     Text('Valence: ', style: AuraTypography.bodySmall.copyWith(
                       color: AuraColors.textTertiary)),
-                    Text('+0.65', style: AuraTypography.bodySmall.copyWith(
-                      color: AuraColors.success, fontWeight: FontWeight.w600)),
+                    Text(
+                      '${profile.valence >= 0 ? "+" : ""}${profile.valence.toStringAsFixed(2)}', 
+                      style: AuraTypography.bodySmall.copyWith(
+                        color: profile.valence >= 0 ? AuraColors.success : AuraColors.error, 
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     Text('Confidence: ', style: AuraTypography.bodySmall.copyWith(
                       color: AuraColors.textTertiary)),
-                    Text('78%', style: AuraTypography.bodySmall.copyWith(
-                      color: AuraColors.textSecondary, fontWeight: FontWeight.w600)),
+                    Text(
+                      '${(profile.emotionConfidence * 100).round()}%', 
+                      style: AuraTypography.bodySmall.copyWith(
+                        color: AuraColors.textSecondary, 
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -172,7 +203,7 @@ class EmotionalCompassScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRadarSection() {
+  Widget _buildRadarSection(Map<String, double> emotionVector) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -201,14 +232,14 @@ class EmotionalCompassScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const EmotionRadarChart(emotionVector: _emotionVector, size: 240),
+          EmotionRadarChart(emotionVector: emotionVector, size: 240),
         ],
       ),
     );
   }
 
-  Widget _buildEmotionBreakdown() {
-    final sorted = _emotionVector.entries.toList()
+  Widget _buildEmotionBreakdown(Map<String, double> emotionVector) {
+    final sorted = emotionVector.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return Container(
@@ -272,7 +303,7 @@ class EmotionalCompassScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTimelineSection() {
+  Widget _buildTimelineSection(EmotionProfileModel profile) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -294,7 +325,7 @@ class EmotionalCompassScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const EmotionTimeline(height: 200),
+          EmotionTimeline(height: 200, weeklyPattern: profile.weeklyPattern),
         ],
       ),
     );

@@ -11,9 +11,11 @@ class EmotionTimeline extends StatelessWidget {
   const EmotionTimeline({
     super.key,
     this.height = 180,
+    required this.weeklyPattern,
   });
 
   final double height;
+  final Map<String, dynamic> weeklyPattern;
 
   // Mock 7-day data (valence: -1.0 to 1.0)
   static const _mockData = [
@@ -26,8 +28,45 @@ class EmotionTimeline extends StatelessWidget {
     {'day': 'CN', 'valence': 0.5, 'arousal': 0.4},
   ];
 
+  List<Map<String, dynamic>> get _chartData {
+    if (weeklyPattern.isEmpty) {
+      return _mockData;
+    }
+
+    final days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    final vnLabels = {
+      'mon': 'T2',
+      'tue': 'T3',
+      'wed': 'T4',
+      'thu': 'T5',
+      'fri': 'T6',
+      'sat': 'T7',
+      'sun': 'CN',
+    };
+
+    final List<Map<String, dynamic>> list = [];
+    for (final day in days) {
+      if (weeklyPattern.containsKey(day)) {
+        final dayData = weeklyPattern[day];
+        final valence = (dayData is Map ? (dayData['valence'] ?? 0.0) : 0.0) as num;
+        list.add({
+          'day': vnLabels[day] ?? day.toUpperCase(),
+          'valence': valence.toDouble(),
+        });
+      } else {
+        list.add({
+          'day': vnLabels[day] ?? day.toUpperCase(),
+          'valence': 0.0,
+        });
+      }
+    }
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final chartData = _chartData;
+
     return SizedBox(
       height: height,
       child: LineChart(
@@ -68,11 +107,11 @@ class EmotionTimeline extends StatelessWidget {
                 reservedSize: 28,
                 getTitlesWidget: (value, meta) {
                   final index = value.toInt();
-                  if (index < 0 || index >= _mockData.length) return const SizedBox();
+                  if (index < 0 || index >= chartData.length) return const SizedBox();
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      _mockData[index]['day'] as String,
+                      chartData[index]['day'] as String,
                       style: AuraTypography.labelSmall.copyWith(
                         color: AuraColors.textTertiary,
                       ),
@@ -90,7 +129,7 @@ class EmotionTimeline extends StatelessWidget {
           lineBarsData: [
             // Valence line
             LineChartBarData(
-              spots: _mockData.asMap().entries.map((e) {
+              spots: chartData.asMap().entries.map((e) {
                 return FlSpot(e.key.toDouble(), (e.value['valence'] as num).toDouble());
               }).toList(),
               isCurved: true,

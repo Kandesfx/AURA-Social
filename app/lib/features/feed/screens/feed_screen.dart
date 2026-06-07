@@ -9,6 +9,8 @@ import '../../../services/feed_service.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../models/post_model.dart';
 import '../widgets/post_card.dart';
+import '../../wellbeing/widgets/crisis_resource_card.dart';
+import '../../../providers/emotion_profile_provider.dart';
 
 /// AURA Social – Feed Screen
 ///
@@ -167,6 +169,7 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _currentPage = 0;
+  bool _dismissedCrisisCard = false;
 
   @override
   void initState() {
@@ -237,13 +240,18 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
 
   @override
   Widget build(BuildContext context) {
+    final emotionProfileAsync = ref.watch(currentEmotionProfileProvider);
+    final emotionProfile = emotionProfileAsync.valueOrNull;
+    final isCrisis = emotionProfile != null && emotionProfile.valence <= -0.5;
+    final showCrisisCard = isCrisis && !_dismissedCrisisCard;
+
     // ── Shimmer loading state ──
     if (_isLoading) {
       return const ShimmerFeedLoading(itemCount: 3);
     }
 
     // ── Empty state ──
-    if (_posts.isEmpty) {
+    if (_posts.isEmpty && !showCrisisCard) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -280,21 +288,56 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 8, bottom: 100),
-        itemCount: _posts.length + (_hasMore ? 1 : 0),
+        itemCount: _posts.length + (_hasMore ? 1 : 0) + (showCrisisCard ? 1 : 0),
         itemBuilder: (context, index) {
-          // ── Loading more indicator at bottom ──
-          if (index == _posts.length) {
-            return _buildLoadMoreIndicator();
-          }
+          if (showCrisisCard) {
+            if (index == 0) {
+              return CrisisResourceCard(
+                onDismiss: () {
+                  setState(() {
+                    _dismissedCrisisCard = true;
+                  });
+                },
+                onStartAnonymousChat: () {
+                  context.push('/chat');
+                },
+                onCallHotline: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đang kết nối tới đường dây nóng...'),
+                    ),
+                  );
+                },
+              );
+            }
+            final postIndex = index - 1;
+            if (postIndex == _posts.length) {
+              return _buildLoadMoreIndicator();
+            }
 
-          final delay = Duration(milliseconds: (index * 100).clamp(0, 500));
-          return PostCard(
-            post: PostModel.fromMockMap(_posts[index]),
-            persistReactionChanges: false,
-          )
-              .animate()
-              .fadeIn(duration: 400.ms, delay: delay)
-              .slideY(begin: 0.05, duration: 400.ms, delay: delay);
+            final delay = Duration(milliseconds: (postIndex * 100).clamp(0, 500));
+            return PostCard(
+              post: PostModel.fromMockMap(_posts[postIndex]),
+              persistReactionChanges: false,
+            )
+                .animate()
+                .fadeIn(duration: 400.ms, delay: delay)
+                .slideY(begin: 0.05, duration: 400.ms, delay: delay);
+          } else {
+            // ── Loading more indicator at bottom ──
+            if (index == _posts.length) {
+              return _buildLoadMoreIndicator();
+            }
+
+            final delay = Duration(milliseconds: (index * 100).clamp(0, 500));
+            return PostCard(
+              post: PostModel.fromMockMap(_posts[index]),
+              persistReactionChanges: false,
+            )
+                .animate()
+                .fadeIn(duration: 400.ms, delay: delay)
+                .slideY(begin: 0.05, duration: 400.ms, delay: delay);
+          }
         },
       ),
     );

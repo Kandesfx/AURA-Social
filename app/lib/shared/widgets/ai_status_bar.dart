@@ -22,11 +22,13 @@ class AIStatusBar extends StatelessWidget {
     this.emotionalMode = 'explore',
     this.isProcessing = true,
     this.onTap,
+    this.animate = true,
   });
 
   final String emotionalMode;
   final bool isProcessing;
   final VoidCallback? onTap;
+  final bool animate;
 
   static const _modeMap = {
     'gentle_uplift': {'emoji': '🌤️', 'label': 'Nâng đỡ', 'color': 'joy'},
@@ -63,25 +65,7 @@ class AIStatusBar extends StatelessWidget {
         child: Row(
           children: [
             // AI indicator dot
-            if (isProcessing)
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: AuraColors.success,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AuraColors.success.withValues(alpha: 0.5),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-              ).animate(onPlay: (c) => c.repeat(reverse: true))
-               .fadeIn(duration: 1000.ms)
-               .then()
-               .fadeOut(duration: 1000.ms),
+            if (isProcessing) _buildDot(),
 
             // Status text
             Text(
@@ -119,5 +103,31 @@ class AIStatusBar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildDot() {
+    final dot = Container(
+      width: 8,
+      height: 8,
+      margin: const EdgeInsets.only(right: 8),
+      decoration: BoxDecoration(
+        color: AuraColors.success,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: AuraColors.success.withValues(alpha: 0.5),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+    );
+
+    if (!animate) return dot;
+
+    return dot
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .fadeIn(duration: 1000.ms)
+        .then()
+        .fadeOut(duration: 1000.ms);
   }
 }

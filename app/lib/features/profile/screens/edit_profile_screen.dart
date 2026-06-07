@@ -3,18 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../../shared/widgets/error_widget.dart';
 import '../../../providers/user_profile_provider.dart';
-import '../../../providers/api_service_provider.dart';
 
 /// AURA Social – Edit Profile Screen
 ///
 /// Cho phép chỉnh sửa: displayName, username, bio, interests, avatar.
-/// Avatar upload qua FastAPI → R2.
+/// Avatar upload trực tiếp lên Firebase Storage.
 /// Save → update Firestore users/{uid}.
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -61,21 +61,29 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
       String? avatarUrl = _currentAvatarUrl;
 
-      // Upload avatar mới nếu có
+      // Upload avatar mới lên Firebase Storage (giống chat)
       if (_newAvatar != null) {
         try {
-          final api = ref.read(apiServiceProvider);
-          final resp = await api.uploadFile(
-            '/api/v1/upload/avatar',
-            filePath: _newAvatar!.path,
-            fieldName: 'file',
-            extraFields: {'type': 'avatar'},
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('avatars/${user.uid}.jpg');
+          final uploadTask = storageRef.putFile(
+            _newAvatar!,
+            SettableMetadata(contentType: 'image/jpeg'),
           );
-          if (resp.statusCode == 200) {
-            avatarUrl = resp.data['url'];
-          }
+          final snapshot = await uploadTask;
+          final newUrl = await snapshot.ref.getDownloadURL();
+          avatarUrl = newUrl;
+          debugPrint('[EditProfile] Avatar upload success, URL: $newUrl');
         } catch (e) {
-          debugPrint('[EditProfile] Avatar upload failed: $e');
+          debugPrint('[EditProfile] Avatar upload exception: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('⚠️ Upload avatar thất bại: $e'),
+              backgroundColor: AuraColors.warning,
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
         }
       }
 

@@ -5,17 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/constants/emotion_types.dart';
-import '../../../providers/api_service_provider.dart';
 import '../../feed/models/post_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-/// AURA Social – Create Post Screen (Connected to Firestore + R2 upload)
+/// AURA Social – Create Post Screen (Connected to Firestore + Firebase Storage)
 ///
 /// Text + image picker + optional mood expression.
-/// Upload ảnh qua FastAPI → R2, tạo post document trong Firestore.
+/// Upload ảnh trực tiếp lên Firebase Storage, tạo post document trong Firestore.
 class CreatePostScreen extends ConsumerStatefulWidget {
   final PostModel? postToEdit;
   const CreatePostScreen({super.key, this.postToEdit});
@@ -75,22 +75,31 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       List<String> mediaUrls = [];
       String mediaType = 'none';
 
-      // Upload ảnh qua FastAPI → R2 (nếu có)
+      // Upload ảnh lên Firebase Storage trực tiếp (giống chat)
       if (_pickedImage != null) {
         try {
-          final api = ref.read(apiServiceProvider);
-          final response = await api.uploadFile(
-            '/api/v1/upload/image',
-            filePath: _pickedImage!.path,
-            fieldName: 'file',
-            extraFields: {'type': 'post'},
+          final fileName = '${DateTime.now().millisecondsSinceEpoch}_${user.uid}.jpg';
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('posts/$fileName');
+          final uploadTask = storageRef.putFile(
+            _pickedImage!,
+            SettableMetadata(contentType: 'image/jpeg'),
           );
-          if (response.statusCode == 200) {
-            mediaUrls = [response.data['url']];
-            mediaType = 'image';
-          }
+          final snapshot = await uploadTask;
+          final url = await snapshot.ref.getDownloadURL();
+          mediaUrls = [url];
+          mediaType = 'image';
+          debugPrint('[CreatePost] Upload success, URL: $url');
         } catch (e) {
-          debugPrint('[CreatePost] Upload failed: $e');
+          debugPrint('[CreatePost] Upload exception: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('⚠️ Upload ảnh thất bại: $e'),
+              backgroundColor: AuraColors.warning,
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
           // Fallback: post without image
         }
       } else if (_existingImageUrl != null) {

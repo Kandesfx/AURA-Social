@@ -9,7 +9,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: AIStatusBar(),
+            body: AIStatusBar(animate: false),
           ),
         ),
       );
@@ -22,7 +22,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: AIStatusBar(isProcessing: true),
+            body: AIStatusBar(isProcessing: true, animate: false),
           ),
         ),
       );
@@ -34,7 +34,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: AIStatusBar(isProcessing: false),
+            body: AIStatusBar(isProcessing: false, animate: false),
           ),
         ),
       );
@@ -46,7 +46,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: AIStatusBar(emotionalMode: 'explore'),
+            body: AIStatusBar(emotionalMode: 'explore', animate: false),
           ),
         ),
       );
@@ -58,7 +58,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: AIStatusBar(emotionalMode: 'gentle_uplift'),
+            body: AIStatusBar(emotionalMode: 'gentle_uplift', animate: false),
           ),
         ),
       );
@@ -71,7 +71,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: AIStatusBar(onTap: () => tapped = true),
+            body: AIStatusBar(
+              isProcessing: false,
+              animate: false,
+              onTap: () => tapped = true,
+            ),
           ),
         ),
       );

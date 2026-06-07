@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
+import '../../../services/chat_service.dart';
 import '../models/conversation_model.dart';
+import '../models/message_model.dart';
 import '../providers/chat_provider.dart';
 import '../providers/presence_provider.dart';
 import '../widgets/message_bubble.dart';
+import '../widgets/message_actions_sheet.dart';
 import '../widgets/typing_indicator.dart';
 import '../widgets/chat_input.dart';
 
@@ -34,6 +39,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   int _previousMessageCount = 0;
+  MessageModel? _replyingTo;
 
   @override
   void initState() {
@@ -91,44 +97,157 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  void _handleSend(String text) {
+  ConversationModel? _findConversation() {
     final conversations = ref.read(conversationsProvider);
-    ConversationModel? conversation;
     for (final item in conversations) {
-      if (item.id == widget.conversationId) {
-        conversation = item;
-        break;
-      }
+      if (item.id == widget.conversationId) return item;
     }
+    return null;
+  }
 
+  void _handleSend(String text) {
+    final conversation = _findConversation();
     if (conversation == null || conversation.participants.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Dang tai cuoc tro chuyen, thu lai sau mot chut.'),
+          content: Text('Đang tải cuộc trò chuyện, thử lại sau.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    // Gửi message qua ChatService
-    ref.read(sendMessageProvider).send(
-          conversationId: widget.conversationId,
-          content: text,
-          participants: conversation.participants,
-        );
+    final chatService = ref.read(chatServiceProvider);
 
-    // Clear typing status
+    if (_replyingTo != null) {
+      // Gửi kèm reply info
+      final currentUserId = ref.read(currentUserIdProvider);
+      chatService.sendMessageWithReply(
+        conversationId: widget.conversationId,
+        content: text,
+        replyTo: ReplyInfo(
+          messageId: _replyingTo!.id,
+          senderId: _replyingTo!.senderId,
+          senderName: _replyingTo!.isMine(currentUserId) ? 'Bạn' : (conversation.peerName ?? 'User'),
+          content: _replyingTo!.content,
+        ),
+        participants: conversation.participants,
+      );
+      setState(() => _replyingTo = null);
+    } else {
+      // Gửi bình thường
+      ref.read(sendMessageProvider).send(
+            conversationId: widget.conversationId,
+            content: text,
+            participants: conversation.participants,
+          );
+    }
+
     _clearTyping();
-
-    // Scroll to bottom sau khi message được thêm
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   void _handleTypingChanged(bool isTyping) {
-    ref
-        .read(typingActionProvider)
-        .setTyping(widget.conversationId, isTyping);
+    ref.read(typingActionProvider).setTyping(widget.conversationId, isTyping);
+  }
+
+  // ── Message Actions ──
+
+  void _showMessageActions(MessageModel message) {
+    final currentUserId = ref.read(currentUserIdProvider);
+    final isMine = message.isMine(currentUserId);
+
+    // Haptic feedback
+    HapticFeedback.mediumImpact();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MessageActionsSheet(
+        message: message,
+        isMine: isMine,
+        currentUserId: currentUserId,
+        onReaction: (emotion) => _handleReaction(message.id, emotion),
+        onReply: () => _handleReply(message),
+        onCopy: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã sao chép tin nhắn'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 1),
+            ),
+          );
+        },
+        onDelete: isMine ? () => _handleDelete(message) : null,
+      ),
+    );
+  }
+
+  void _handleReply(MessageModel message) {
+    setState(() => _replyingTo = message);
+  }
+
+  void _handleReaction(String messageId, String emotion) {
+    ref.read(chatServiceProvider).toggleReaction(
+      conversationId: widget.conversationId,
+      messageId: messageId,
+      emotion: emotion,
+    );
+  }
+
+  void _handleDelete(MessageModel message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AuraColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Xóa tin nhắn?',
+          style: AuraTypography.titleMedium.copyWith(color: AuraColors.textPrimary),
+        ),
+        content: Text(
+          'Tin nhắn này sẽ bị xóa vĩnh viễn.',
+          style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Hủy', style: TextStyle(color: AuraColors.textTertiary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(chatServiceProvider).deleteMessage(
+                conversationId: widget.conversationId,
+                messageId: message.id,
+              );
+            },
+            child: Text('Xóa', style: TextStyle(color: AuraColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleImagePick() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+    if (image == null) return;
+
+    // Hiện snackbar thông báo (chưa upload lên Storage)
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('📷 Tính năng gửi ảnh sẽ hoạt động khi kết nối Firebase Storage'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AuraColors.surfaceHigh,
+        ),
+      );
+    }
   }
 
   @override
@@ -222,6 +341,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                 message: message,
                                 isMine: isMine,
                                 isLastInGroup: isLastInGroup,
+                                onLongPress: () => _showMessageActions(message),
                               ).animate().fadeIn(
                                     duration: 250.ms,
                                     delay: Duration(
@@ -238,11 +358,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ChatInput(
             onSend: _handleSend,
             onTypingChanged: _handleTypingChanged,
-            onAttach: () {
-              // TODO: image picker
-            },
+            replyingTo: _replyingTo,
+            onCancelReply: () => setState(() => _replyingTo = null),
+            onAttach: _handleImagePick,
             onEmoji: () {
-              // TODO: emoji picker
+              // Insert emoji bằng system keyboard emoji
+              // Focus vào input → user mở emoji keyboard
             },
           ),
         ],

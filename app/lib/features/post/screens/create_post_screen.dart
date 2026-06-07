@@ -125,9 +125,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         await FirebaseFirestore.instance.collection('posts').add(post.toFirestore());
 
         // Update post count
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'posts_count': FieldValue.increment(1),
-        });
+        }, SetOptions(merge: true));
       }
 
       if (mounted) context.pop();

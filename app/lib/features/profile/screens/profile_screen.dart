@@ -39,20 +39,6 @@ class ProfileScreen extends ConsumerWidget {
             icon: const Icon(Icons.settings_outlined, size: 22),
             onPressed: () => context.push('/settings'),
           ),
-          IconButton(icon: const Icon(Icons.edit_outlined, size: 22), onPressed: () => context.push('/profile/edit')),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, size: 22),
-            onSelected: (v) async {
-              if (v == 'logout') {
-                await ref.read(authNotifierProvider.notifier).signOut();
-                if (context.mounted) context.go('/login');
-              }
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'settings', child: Row(children: [Icon(Icons.settings_outlined, size: 18), SizedBox(width: 8), Text('Cài đặt')])),
-              PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 18, color: AuraColors.error), SizedBox(width: 8), Text('Đăng xuất', style: TextStyle(color: AuraColors.error))])),
-            ],
-          ),
         ],
       ),
       body: userAsync.when(

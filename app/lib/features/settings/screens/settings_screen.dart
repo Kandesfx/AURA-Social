@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../providers/settings_provider.dart';
+import '../../../providers/auth_state_provider.dart';
 
 /// AURA Social – Settings Screen
 ///
@@ -36,7 +37,7 @@ class SettingsScreen extends ConsumerWidget {
                 iconColor: AuraColors.primary,
                 title: 'Chỉnh sửa hồ sơ',
                 subtitle: 'Tên, ảnh đại diện, bio',
-                onTap: () {},
+                onTap: () => context.push('/profile/edit'),
               ),
             ],
           ).animate().fadeIn(duration: 300.ms),
@@ -141,7 +142,7 @@ class SettingsScreen extends ConsumerWidget {
                 iconColor: AuraColors.error,
                 title: 'Đăng xuất',
                 titleColor: AuraColors.error,
-                onTap: () => _showLogoutDialog(context),
+                onTap: () => _showLogoutDialog(context, ref),
               ),
             ],
           ).animate().fadeIn(duration: 300.ms, delay: 250.ms),
@@ -280,7 +281,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -291,7 +292,7 @@ class SettingsScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // TODO: FirebaseAuth.instance.signOut() + navigate to login
+              ref.read(authNotifierProvider.notifier).signOut();
             },
             style: ElevatedButton.styleFrom(backgroundColor: AuraColors.error),
             child: const Text('Đăng xuất'),

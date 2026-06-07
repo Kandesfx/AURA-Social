@@ -277,6 +277,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return 'Lỗi kết nối mạng';
       case 'invalid-credential':
         return 'Email hoặc mật khẩu không đúng';
+      case 'operation-not-allowed':
+        return 'Phương thức đăng nhập này chưa được bật trên Firebase';
       default:
         return 'Đã xảy ra lỗi ($code)';
     }

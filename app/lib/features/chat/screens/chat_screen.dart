@@ -3,12 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
 import '../../../services/chat_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
+import '../models/call_model.dart';
+import '../../../services/call_service.dart';
 import '../providers/chat_provider.dart';
 import '../providers/presence_provider.dart';
 import '../widgets/message_bubble.dart';
@@ -41,6 +45,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int _previousMessageCount = 0;
   MessageModel? _replyingTo;
 
+  bool _isSearching = false;
+  String _chatSearchQuery = '';
+  bool _isMuted = false;
+  bool _isBlocked = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +58,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Mark as read khi vào screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markAsRead();
+      _loadMuteAndBlockStates();
     });
+  }
+
+  @override
+  void deactivate() {
+    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    super.deactivate();
   }
 
   @override
@@ -81,6 +97,99 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ref
         .read(typingActionProvider)
         .setTyping(widget.conversationId, false);
+  }
+
+  String _getPeerId() {
+    try {
+      final conversations = ref.read(conversationsProvider);
+      final currentUserId = ref.read(currentUserIdProvider);
+      final conversation = conversations.firstWhere((c) => c.id == widget.conversationId);
+      return conversation.participants.firstWhere((p) => p != currentUserId, orElse: () => '');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _loadMuteAndBlockStates() async {
+    final prefs = await SharedPreferences.getInstance();
+    final peerId = _getPeerId();
+    if (mounted) {
+      setState(() {
+        _isMuted = prefs.getBool('muted_conversation_${widget.conversationId}') ?? false;
+        _isBlocked = peerId.isNotEmpty ? (prefs.getBool('blocked_user_$peerId') ?? false) : false;
+      });
+    }
+  }
+
+  Future<void> _toggleMute() async {
+    final prefs = await SharedPreferences.getInstance();
+    final newMute = !_isMuted;
+    await prefs.setBool('muted_conversation_${widget.conversationId}', newMute);
+    setState(() => _isMuted = newMute);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(newMute ? 'Đã tắt thông báo cuộc trò chuyện này' : 'Đã bật thông báo cuộc trò chuyện này'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Future<void> _toggleBlock() async {
+    final peerId = _getPeerId();
+    if (peerId.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          _isBlocked ? 'Bỏ chặn người dùng?' : 'Chặn người dùng?',
+          style: AuraTypography.titleMedium.copyWith(
+            color: AuraColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          _isBlocked
+              ? 'Bạn sẽ có thể nhận tin nhắn và tương tác lại với người dùng này.'
+              : 'Bạn sẽ không nhận được tin nhắn hay cuộc gọi từ người dùng này nữa.',
+          style: AuraTypography.bodyMedium.copyWith(
+            color: AuraColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Hủy', style: TextStyle(color: AuraColors.textTertiary)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: _isBlocked ? AuraColors.primary : AuraColors.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              _isBlocked ? 'Bỏ chặn' : 'Chặn',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final prefs = await SharedPreferences.getInstance();
+      final newBlock = !_isBlocked;
+      await prefs.setBool('blocked_user_$peerId', newBlock);
+      setState(() => _isBlocked = newBlock);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(newBlock ? 'Đã chặn người dùng' : 'Đã bỏ chặn người dùng'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
   }
 
   void _scrollToBottom({bool animate = true}) {
@@ -238,15 +347,104 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
     if (image == null) return;
 
-    // Hiện snackbar thông báo (chưa upload lên Storage)
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    final conversation = _findConversation();
+    if (conversation == null) return;
+
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    if (scaffoldMessenger == null) return;
+    
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Đang gửi ảnh...'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(days: 1),
+      ),
+    );
+
+    try {
+      final bytes = await image.readAsBytes();
+      final chatService = ref.read(chatServiceProvider);
+      
+      final downloadUrl = await chatService.uploadChatMedia(
+        widget.conversationId,
+        '${DateTime.now().millisecondsSinceEpoch}_${image.name}',
+        bytes,
+      );
+
+      await chatService.sendImageMessage(
+        conversationId: widget.conversationId,
+        mediaUrl: downloadUrl,
+        participants: conversation.participants,
+        replyTo: _replyingTo != null
+            ? ReplyInfo(
+                messageId: _replyingTo!.id,
+                senderId: _replyingTo!.senderId,
+                senderName: _replyingTo!.isMine(ref.read(currentUserIdProvider))
+                    ? 'Bạn'
+                    : (conversation.peerName ?? 'User'),
+                content: _replyingTo!.content,
+              )
+            : null,
+      );
+
+      if (mounted) {
+        setState(() => _replyingTo = null);
+      }
+      scaffoldMessenger.clearSnackBars();
+    } catch (e) {
+      scaffoldMessenger.clearSnackBars();
+      scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: Text('📷 Tính năng gửi ảnh sẽ hoạt động khi kết nối Firebase Storage'),
+          content: Text('Lỗi gửi ảnh: $e'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AuraColors.surfaceHigh,
+          backgroundColor: AuraColors.error,
         ),
       );
+    }
+  }
+
+  Future<void> _startCall(CallType type) async {
+    final conversation = _findConversation();
+    if (conversation == null) return;
+    
+    final currentUserId = ref.read(currentUserIdProvider);
+    final peerId = _getPeerId();
+    if (peerId.isEmpty) return;
+
+    final currentUserDisplayName = 'Tôi';
+    
+    try {
+      final call = await ref.read(callServiceProvider).makeCall(
+        callerId: currentUserId,
+        callerName: currentUserDisplayName,
+        receiverId: peerId,
+        receiverName: conversation.peerName ?? 'User',
+        receiverAvatar: conversation.peerAvatarUrl,
+        type: type,
+      );
+
+      if (mounted) {
+        context.push('/call/${call.id}?incoming=false');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể thực hiện cuộc gọi: $e'),
+            backgroundColor: AuraColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -257,9 +455,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final currentUserId = ref.watch(currentUserIdProvider);
     final conversations = ref.watch(conversationsProvider);
 
-    // Auto-scroll khi có message mới
+    final filteredMessages = _isSearching && _chatSearchQuery.isNotEmpty
+        ? messages
+            .where((m) => m.content
+                .toLowerCase()
+                .contains(_chatSearchQuery.toLowerCase()))
+            .toList()
+        : messages;
+
+    // Auto-scroll khi có message mới + Đánh dấu đã đọc nếu đang xem cuộc trò chuyện
     if (messages.length > _previousMessageCount && _previousMessageCount > 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+        if (messages.isNotEmpty && !messages.last.isMine(currentUserId)) {
+          _markAsRead();
+        }
+      });
     }
     _previousMessageCount = messages.length;
 
@@ -301,32 +512,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           Expanded(
             child: isLoading && messages.isEmpty
                 ? _buildLoadingState()
-                : messages.isEmpty
-                    ? _buildEmptyChat(conversation.peerName ?? 'User')
+                : filteredMessages.isEmpty
+                    ? _isSearching
+                        ? Center(
+                            child: Text(
+                              'Không tìm thấy tin nhắn phù hợp',
+                              style: AuraTypography.bodyMedium.copyWith(
+                                color: AuraColors.textTertiary,
+                              ),
+                            ),
+                          )
+                        : _buildEmptyChat(conversation.peerName ?? 'User')
                     : ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.only(top: 16, bottom: 8),
-                        itemCount: messages.length + (showTyping ? 1 : 0),
+                        itemCount: filteredMessages.length + (showTyping && !_isSearching ? 1 : 0),
                         itemBuilder: (context, index) {
                           // Typing indicator ở cuối
-                          if (showTyping && index == messages.length) {
+                          if (showTyping && !_isSearching && index == filteredMessages.length) {
                             return TypingIndicator(
                               userName: conversation.peerName,
                               showName: false,
                             ).animate().fadeIn(duration: 200.ms);
                           }
 
-                          final message = messages[index];
+                          final message = filteredMessages[index];
                           final isMine = message.isMine(currentUserId);
 
                           // Check nếu message tiếp theo cùng sender
-                          final isLastInGroup = index == messages.length - 1 ||
-                              messages[index + 1].senderId != message.senderId;
+                          final isLastInGroup = index == filteredMessages.length - 1 ||
+                              filteredMessages[index + 1].senderId != message.senderId;
 
                           // Date separator
                           Widget? dateSeparator;
                           if (index == 0 ||
-                              !_isSameDay(messages[index - 1].timestamp,
+                              !_isSameDay(filteredMessages[index - 1].timestamp,
                                   message.timestamp)) {
                             dateSeparator = DateSeparator(
                               date: _formatDate(message.timestamp),
@@ -336,11 +556,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              ?dateSeparator,
+                              if (dateSeparator != null) dateSeparator,
                               MessageBubble(
                                 message: message,
                                 isMine: isMine,
-                                isLastInGroup: isLastInGroup,
+                                	isLastInGroup: isLastInGroup,
                                 onLongPress: () => _showMessageActions(message),
                               ).animate().fadeIn(
                                     duration: 250.ms,
@@ -355,17 +575,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
 
           // ── Input ──
-          ChatInput(
-            onSend: _handleSend,
-            onTypingChanged: _handleTypingChanged,
-            replyingTo: _replyingTo,
-            onCancelReply: () => setState(() => _replyingTo = null),
-            onAttach: _handleImagePick,
-            onEmoji: () {
-              // Insert emoji bằng system keyboard emoji
-              // Focus vào input → user mở emoji keyboard
-            },
-          ),
+          if (_isBlocked)
+            Container(
+              width: double.infinity,
+              color: AuraColors.surfaceVariant,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Bạn đã chặn người dùng này',
+                      style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textSecondary),
+                    ),
+                    TextButton(
+                      onPressed: _toggleBlock,
+                      child: Text(
+                        'Bỏ chặn',
+                        style: AuraTypography.labelLarge.copyWith(color: AuraColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ChatInput(
+              onSend: _handleSend,
+              onTypingChanged: _handleTypingChanged,
+              replyingTo: _replyingTo,
+              onCancelReply: () => setState(() => _replyingTo = null),
+              onAttach: _handleImagePick,
+              onEmoji: () {},
+            ),
         ],
       ),
     );
@@ -376,6 +619,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ConversationModel conversation,
     String peerId,
   ) {
+    if (_isSearching) {
+      return AppBar(
+        backgroundColor: AuraColors.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        title: TextField(
+          autofocus: true,
+          style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Tìm nội dung tin nhắn...',
+            hintStyle: AuraTypography.bodyMedium.copyWith(color: AuraColors.textTertiary),
+            border: InputBorder.none,
+          ),
+          onChanged: (value) {
+            setState(() {
+              _chatSearchQuery = value;
+            });
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 20),
+            onPressed: () => setState(() {
+              if (_chatSearchQuery.isNotEmpty) {
+                _chatSearchQuery = '';
+              } else {
+                _isSearching = false;
+              }
+            }),
+          ),
+          const SizedBox(width: 8),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(0.5),
+          child: Container(
+            height: 0.5,
+            color: AuraColors.surfaceBorder,
+          ),
+        ),
+      );
+    }
+
     final presence = peerId.isNotEmpty
         ? ref.watch(userPresenceProvider(peerId))
         : const UserPresence();
@@ -391,7 +677,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       titleSpacing: 0,
       title: GestureDetector(
         onTap: () {
-          // TODO: navigate to user profile
+          if (peerId.isNotEmpty) {
+            context.push('/user/$peerId');
+          }
         },
         child: Row(
           children: [
@@ -457,11 +745,93 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       actions: [
         IconButton(
           icon: const Icon(Icons.call_outlined, size: 22),
-          onPressed: () {},
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              builder: (context) => Container(
+                decoration: BoxDecoration(
+                  color: AuraColors.surface,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AuraColors.surfaceBorder,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Bắt đầu cuộc gọi',
+                        style: AuraTypography.titleMedium.copyWith(
+                          color: AuraColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AuraColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.call_rounded, color: AuraColors.primary),
+                        ),
+                        title: Text(
+                          'Cuộc gọi thoại',
+                          style: AuraTypography.titleSmall.copyWith(color: AuraColors.textPrimary),
+                        ),
+                        subtitle: Text(
+                          'Gọi thoại chất lượng cao',
+                          style: AuraTypography.labelSmall.copyWith(color: AuraColors.textTertiary),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _startCall(CallType.audio);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AuraColors.tertiary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.videocam_rounded, color: AuraColors.tertiary),
+                        ),
+                        title: Text(
+                          'Cuộc gọi video',
+                          style: AuraTypography.titleSmall.copyWith(color: AuraColors.textPrimary),
+                        ),
+                        subtitle: Text(
+                          'Gọi video với camera trước',
+                          style: AuraTypography.labelSmall.copyWith(color: AuraColors.textTertiary),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _startCall(CallType.video);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
         IconButton(
           icon: const Icon(Icons.more_vert_rounded, size: 22),
-          onPressed: () => _showChatOptions(context),
+          onPressed: () => _showChatOptions(context, peerId),
         ),
       ],
       bottom: PreferredSize(
@@ -520,14 +890,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  void _showChatOptions(BuildContext context) {
+  void _showChatOptions(BuildContext context, String peerId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AuraColors.surfaceVariant,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (innerContext) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -546,23 +916,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 _OptionTile(
                   icon: Icons.person_outline_rounded,
                   label: 'Xem profile',
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(innerContext);
+                    if (peerId.isNotEmpty) {
+                      context.push('/user/$peerId');
+                    }
+                  },
                 ),
                 _OptionTile(
                   icon: Icons.search_rounded,
                   label: 'Tìm trong cuộc trò chuyện',
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(innerContext);
+                    setState(() {
+                      _isSearching = true;
+                      _chatSearchQuery = '';
+                    });
+                  },
                 ),
                 _OptionTile(
-                  icon: Icons.notifications_off_outlined,
-                  label: 'Tắt thông báo',
-                  onTap: () => Navigator.pop(context),
+                  icon: _isMuted ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+                  label: _isMuted ? 'Bật thông báo' : 'Tắt thông báo',
+                  onTap: () {
+                    Navigator.pop(innerContext);
+                    _toggleMute();
+                  },
                 ),
                 _OptionTile(
                   icon: Icons.block_rounded,
-                  label: 'Chặn người dùng',
+                  label: _isBlocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng',
                   color: AuraColors.error,
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(innerContext);
+                    _toggleBlock();
+                  },
                 ),
               ],
             ),

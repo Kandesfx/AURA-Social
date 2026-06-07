@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/chat/providers/chat_provider.dart';
+import '../../services/call_service.dart';
 
 /// AURA Social – Main Scaffold with Bottom Navigation
 ///
@@ -24,6 +25,15 @@ class MainScaffold extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Lắng nghe cuộc gọi đến thời gian thực
+    ref.listen(incomingCallStreamProvider, (previous, next) {
+      final incomingCalls = next.value ?? [];
+      if (incomingCalls.isNotEmpty) {
+        final activeCall = incomingCalls.first;
+        context.push('/call/${activeCall.id}?incoming=true');
+      }
+    });
+
     final currentIndex = _currentIndex(context);
 
     // Tổng unread count từ tất cả conversations (đã có sẵn provider)

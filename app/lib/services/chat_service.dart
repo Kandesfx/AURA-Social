@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/chat/models/conversation_model.dart';
 import '../features/chat/models/message_model.dart';
@@ -20,15 +22,18 @@ class ChatService {
     FirebaseFirestore? firestore,
     FirebaseDatabase? database,
     FirebaseAuth? auth,
+    FirebaseStorage? storage,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _database = database ?? FirebaseDatabase.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _storage = storage ?? FirebaseStorage.instance;
 
   static const demoPeerId = 'aura_demo_peer';
 
   final FirebaseFirestore _firestore;
   final FirebaseDatabase _database;
   final FirebaseAuth _auth;
+  final FirebaseStorage _storage;
 
   /// Current user ID (shortcut)
   String get _uid => _auth.currentUser!.uid;
@@ -206,6 +211,9 @@ class ChatService {
     String conversationId,
     String userId,
   ) async {
+    // Reset unread count on Firestore ngay lập tức
+    await resetUnreadCount(conversationId, userId);
+
     // Get recent messages
     final snapshot = await _database
         .ref('messages/$conversationId')
@@ -231,9 +239,6 @@ class ChatService {
     if (updates.isNotEmpty) {
       await _database.ref('messages/$conversationId').update(updates);
     }
-
-    // Reset unread count on Firestore
-    await resetUnreadCount(conversationId, userId);
   }
 
   /// Xóa 1 tin nhắn khỏi RTDB.
@@ -558,7 +563,6 @@ class ChatService {
     return enriched;
   }
 
-  /// Parse emotion vector từ Firestore data.
   Map<String, double>? _parseEmotionVector(dynamic data) {
     if (data == null) return null;
     if (data is Map) {
@@ -567,6 +571,19 @@ class ChatService {
       );
     }
     return null;
+  }
+
+  /// Upload media (image/file) to Firebase Storage and get download URL
+  Future<String> uploadChatMedia(String conversationId, String fileName, Uint8List fileBytes) async {
+    try {
+      final ref = _storage.ref().child('chats/$conversationId/$fileName');
+      final uploadTask = ref.putData(fileBytes);
+      final snapshot = await uploadTask.timeout(const Duration(seconds: 15));
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Lỗi khi tải ảnh/tệp lên Firebase Storage: $e');
+    }
   }
 }
 

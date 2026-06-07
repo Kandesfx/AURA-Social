@@ -42,11 +42,21 @@ class _ChatInputState extends State<ChatInput>
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   bool _hasText = false;
+  bool _showEmoji = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) {
+      setState(() {
+        _showEmoji = false;
+      });
+    }
   }
 
   @override
@@ -61,6 +71,7 @@ class _ChatInputState extends State<ChatInput>
   @override
   void dispose() {
     _controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -86,133 +97,204 @@ class _ChatInputState extends State<ChatInput>
   @override
   Widget build(BuildContext context) {
     return Container(
+      color: Colors.transparent,
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 12),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AuraColors.surface,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+            border: Border.all(
+              color: AuraColors.surfaceBorder.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Reply Banner ──
+              if (widget.replyingTo != null) _buildReplyBanner(),
+
+              // ── Input Row ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Attach Button
+                    _ActionButton(
+                      icon: Icons.add_rounded,
+                      onTap: widget.onAttach,
+                      tooltip: 'Đính kèm',
+                    ),
+
+                    const SizedBox(width: 4),
+
+                    // Text Input
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        decoration: const BoxDecoration(
+                          color: Colors.transparent,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Emoji button
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4, bottom: 4),
+                              child: _ActionButton(
+                                icon: _showEmoji
+                                    ? Icons.keyboard_rounded
+                                    : Icons.emoji_emotions_outlined,
+                                onTap: () {
+                                  if (_showEmoji) {
+                                    _focusNode.requestFocus();
+                                  } else {
+                                    _focusNode.unfocus();
+                                  }
+                                  setState(() {
+                                    _showEmoji = !_showEmoji;
+                                  });
+                                },
+                                tooltip: 'Emoji',
+                                size: 20,
+                              ),
+                            ),
+
+                            // TextField
+                            Expanded(
+                              child: TextField(
+                                controller: _controller,
+                                focusNode: _focusNode,
+                                enabled: widget.enabled,
+                                maxLines: 5,
+                                minLines: 1,
+                                textCapitalization: TextCapitalization.sentences,
+                                style: AuraTypography.bodyMedium.copyWith(
+                                  color: AuraColors.textPrimary,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: widget.replyingTo != null
+                                      ? 'Trả lời...'
+                                      : 'Nhắn tin...',
+                                  hintStyle: AuraTypography.bodyMedium.copyWith(
+                                    color: AuraColors.textTertiary,
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 10,
+                                  ),
+                                  isDense: true,
+                                ),
+                                onSubmitted: (_) => _handleSend(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Send Button
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) {
+                        return ScaleTransition(
+                          scale: animation,
+                          child: child,
+                        );
+                      },
+                      child: _hasText
+                          ? _SendButton(
+                              key: const ValueKey('send'),
+                              onTap: _handleSend,
+                            )
+                          : _ActionButton(
+                              key: const ValueKey('mic'),
+                              icon: Icons.mic_rounded,
+                              onTap: () {},
+                              tooltip: 'Voice',
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_showEmoji)
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+                  child: _buildEmojiPanel(),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmojiPanel() {
+    final emojis = [
+      '😊', '😭', '😍', '👍', '🔥', '😂', '😮', '👏',
+      '🤝', '🎯', '❤️', '🤔', '🙄', '😱', '🥳', '😎',
+      '😡', '💩', '🙏', '✨', '👀', '💯', '💔', '🌟'
+    ];
+
+    return Container(
+      height: 180,
       decoration: BoxDecoration(
         color: AuraColors.surface,
         border: Border(
-          top: BorderSide(color: AuraColors.surfaceBorder, width: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+          top: BorderSide(
+            color: AuraColors.surfaceBorder.withValues(alpha: 0.5),
+            width: 0.5,
           ),
-        ],
+        ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Reply Banner ──
-            if (widget.replyingTo != null) _buildReplyBanner(),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 8,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+        ),
+        itemCount: emojis.length,
+        itemBuilder: (context, index) {
+          final emoji = emojis[index];
+          return InkWell(
+            onTap: () {
+              final text = _controller.text;
+              final selection = _controller.selection;
+              
+              final start = selection.start >= 0 ? selection.start : text.length;
+              final end = selection.end >= 0 ? selection.end : text.length;
 
-            // ── Input Row ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // ── Attach Button ──
-                  _ActionButton(
-                    icon: Icons.add_rounded,
-                    onTap: widget.onAttach,
-                    tooltip: 'Đính kèm',
-                  ),
-
-                  const SizedBox(width: 4),
-
-                  // ── Text Input ──
-                  Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 120),
-                      decoration: BoxDecoration(
-                        color: AuraColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: _focusNode.hasFocus
-                              ? AuraColors.primary.withValues(alpha: 0.3)
-                              : AuraColors.surfaceBorder,
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // Emoji button
-                          Padding(
-                            padding: const EdgeInsets.only(
-                                left: 4, bottom: 4),
-                            child: _ActionButton(
-                              icon: Icons.emoji_emotions_outlined,
-                              onTap: widget.onEmoji,
-                              tooltip: 'Emoji',
-                              size: 20,
-                            ),
-                          ),
-
-                          // TextField
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              focusNode: _focusNode,
-                              enabled: widget.enabled,
-                              maxLines: 5,
-                              minLines: 1,
-                              textCapitalization: TextCapitalization.sentences,
-                              style: AuraTypography.bodyMedium.copyWith(
-                                color: AuraColors.textPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: widget.replyingTo != null
-                                    ? 'Trả lời...'
-                                    : 'Nhắn tin...',
-                                hintStyle: AuraTypography.bodyMedium.copyWith(
-                                  color: AuraColors.textTertiary,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 10,
-                                ),
-                                isDense: true,
-                              ),
-                              onSubmitted: (_) => _handleSend(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  // ── Send Button ──
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (child, animation) {
-                      return ScaleTransition(
-                        scale: animation,
-                        child: child,
-                      );
-                    },
-                    child: _hasText
-                        ? _SendButton(
-                            key: const ValueKey('send'),
-                            onTap: _handleSend,
-                          )
-                        : _ActionButton(
-                            key: const ValueKey('mic'),
-                            icon: Icons.mic_rounded,
-                            onTap: () {},
-                            tooltip: 'Voice',
-                          ),
-                  ),
-                ],
+              final newText = text.replaceRange(start, end, emoji);
+              _controller.text = newText;
+              
+              _controller.selection = TextSelection.collapsed(
+                offset: start + emoji.length,
+              );
+              _onTextChanged();
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Center(
+              child: Text(
+                emoji,
+                style: const TextStyle(fontSize: 22),
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

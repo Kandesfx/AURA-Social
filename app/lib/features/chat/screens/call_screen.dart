@@ -7,6 +7,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
 import '../../../services/call_service.dart';
 import '../models/call_model.dart';
+import '../../../core/services/web_helpers.dart';
 
 class CallScreen extends ConsumerStatefulWidget {
   const CallScreen({
@@ -27,11 +28,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   int _durationSeconds = 0;
   bool _isMuted = false;
   bool _isCameraOff = false;
+  bool _isSpeakerOn = true;
   StreamSubscription? _callSub;
 
   @override
   void initState() {
     super.initState();
+    requestMicPermission();
     _listenToCallState();
   }
 
@@ -267,7 +270,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         )
-                      else if (isConnected)
+                      else if (isConnected) ...[
                         Text(
                           _formatTimeText(call),
                           style: AuraTypography.titleLarge.copyWith(
@@ -276,6 +279,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                             letterSpacing: 1.0,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            'Đang kết nối âm thanh thử nghiệm. Trình duyệt đã được cấp quyền micro.',
+                            style: AuraTypography.bodySmall.copyWith(
+                              color: Colors.white38,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
 
                       const Spacer(),
 
@@ -358,9 +373,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
               // Speaker switch (Simulate/Mock)
               _CircleButton(
-                icon: Icons.volume_up_rounded,
-                color: Colors.white10,
-                onPressed: () {},
+                icon: _isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: _isSpeakerOn ? Colors.white10 : Colors.white24,
+                iconColor: _isSpeakerOn ? Colors.white : Colors.redAccent,
+                onPressed: () => setState(() => _isSpeakerOn = !_isSpeakerOn),
               ),
             ],
           ),

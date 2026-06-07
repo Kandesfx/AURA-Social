@@ -8,7 +8,6 @@ import re
 from typing import List, Dict, Any, Optional
 import numpy as np
 from datetime import datetime, timedelta, timezone
-import google.generativeai as genai
 from app.config import get_settings
 from app.ml.emotion_engine import EMOTIONS
 from app.services.config_service import config_service
@@ -20,16 +19,31 @@ class WeeklyAnalyticsEngine:
     Uses Google Gemini API for personalized letters and dynamic advice.
     """
 
-    def _get_gemini_model(self) -> Optional[genai.GenerativeModel]:
-        """Initialize and return Gemini model if key is configured."""
+    def _get_gemini_model(self) -> Optional[Any]:
+        """Initialize and return Gemini model if key is configured (AI Studio) or via Vertex AI."""
         settings = get_settings()
-        if not settings.gemini_api_key:
-            return None
+        
+        # 1. Try AI Studio if API key is provided
+        if settings.gemini_api_key:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.gemini_api_key)
+                return genai.GenerativeModel('gemini-2.0-flash')
+            except Exception as e:
+                print(f"⚠️ AnalyticsEngine: Failed to configure AI Studio client: {e}")
+                
+        # 2. Otherwise, try Vertex AI (runs on Cloud Run with Service Account)
         try:
-            genai.configure(api_key=settings.gemini_api_key)
-            return genai.GenerativeModel('gemini-2.0-flash')
+            import vertexai
+            from vertexai.generative_models import GenerativeModel
+            
+            # Initialize Vertex AI. Location is set to asia-east1 (same as Cloud Run)
+            vertexai.init(project="aura-social-vn", location="asia-east1")
+            
+            # Vertex AI Gemini model name
+            return GenerativeModel("gemini-2.0-flash")
         except Exception as e:
-            print(f"⚠️ AnalyticsEngine: Failed to configure Gemini API client: {e}")
+            print(f"⚠️ AnalyticsEngine: Failed to configure Vertex AI client: {e}")
             return None
 
     def _generate_personalized_letter_gemini(

@@ -238,8 +238,74 @@ class _ConversationsListScreenState
                                 ),
                               ),
                               confirmDismiss: (_) async {
-                                // TODO: confirm dialog
-                                return false;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: Text(
+                                      'Xóa cuộc trò chuyện?',
+                                      style: AuraTypography.titleMedium.copyWith(
+                                        color: AuraColors.textPrimary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    content: Text(
+                                      'Bạn có chắc chắn muốn xóa cuộc trò chuyện với ${conv.peerName ?? 'User'} không? Hành động này sẽ xóa vĩnh viễn toàn bộ tin nhắn.',
+                                      style: AuraTypography.bodyMedium.copyWith(
+                                        color: AuraColors.textSecondary,
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: Text(
+                                          'Hủy',
+                                          style: AuraTypography.labelLarge.copyWith(
+                                            color: AuraColors.textTertiary,
+                                          ),
+                                        ),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: AuraColors.error,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Xóa',
+                                          style: AuraTypography.labelLarge.copyWith(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                return confirm ?? false;
+                              },
+                              onDismissed: (_) async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                try {
+                                  await ref
+                                      .read(conversationActionsProvider)
+                                      .deleteConversation(conv.id);
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Đã xóa cuộc trò chuyện với ${conv.peerName ?? 'User'}'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('Lỗi khi xóa cuộc trò chuyện: $e'),
+                                      backgroundColor: AuraColors.error,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
                               },
                               child: _ConversationTile(
                                 conversation: conv,

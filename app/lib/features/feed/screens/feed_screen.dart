@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -352,7 +353,8 @@ class _FollowingTabState extends ConsumerState<_FollowingTab> {
     setState(() => _isLoading = true);
 
     final feedService = ref.read(feedServiceProvider);
-    final result = await feedService.getFollowingFeed(page: 0);
+    final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final result = await feedService.getFollowingFeed(myUid: myUid, page: 0);
 
     if (mounted) {
       setState(() {

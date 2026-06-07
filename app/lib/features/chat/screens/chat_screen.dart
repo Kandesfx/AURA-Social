@@ -215,6 +215,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           }
 
                           return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               ?dateSeparator,
                               MessageBubble(

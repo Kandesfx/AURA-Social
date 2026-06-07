@@ -115,25 +115,43 @@ class WavesListScreen extends ConsumerWidget {
                   return WaveCard(
                     wave: wave,
                     isJoined: isJoined,
-                    onJoin: () {
+                    onJoin: () async {
+                      // Cập nhật local state
                       ref.read(joinedWaveIdsProvider.notifier).update(
                         (state) => {...state, wave.id},
                       );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Đã tham gia ${wave.title} ${wave.emoji}'),
-                          backgroundColor: AuraColors.surfaceHigh,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
+                      // Join trên Firestore (tạo member document)
+                      try {
+                        await ref.read(waveActionsProvider).joinWave(wave.id);
+                      } catch (_) {
+                        // Revert nếu lỗi
+                        ref.read(joinedWaveIdsProvider.notifier).update(
+                          (state) => {...state}..remove(wave.id),
+                        );
+                      }
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Đã tham gia ${wave.title} ${wave.emoji}'),
+                            backgroundColor: AuraColors.surfaceHigh,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
                     },
-                    onTap: () {
+                    onTap: () async {
                       if (!isJoined) {
                         ref.read(joinedWaveIdsProvider.notifier).update(
                           (state) => {...state, wave.id},
                         );
+                        // Join trên Firestore
+                        try {
+                          await ref.read(waveActionsProvider).joinWave(wave.id);
+                        } catch (_) {}
                       }
-                      context.push('/wave/${wave.id}');
+                      if (context.mounted) {
+                        context.push('/wave/${wave.id}');
+                      }
                     },
                   ).animate(delay: Duration(milliseconds: 100 + index * 80))
                       .fadeIn(duration: 400.ms)

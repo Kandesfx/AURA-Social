@@ -20,3 +20,17 @@ class ContentAnalysisResponse(BaseModel):
     embedding: List[float]  # 384-dim text embedding
     is_safe: bool  # Content safety flag
     language: Optional[str] = None
+
+
+class ModerationCheckRequest(BaseModel):
+    """Request schema for content moderation checks."""
+    text: str
+
+
+class ModerationCheckResponse(BaseModel):
+    """Response schema from moderation checks."""
+    is_toxic: bool
+    toxicity_score: float
+    flagged_categories: List[str]
+    cleaned_text: str
+

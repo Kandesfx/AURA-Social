@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
@@ -46,6 +48,9 @@ class FCMService {
     // Get FCM token
     _fcmToken = await _messaging.getToken();
     debugPrint('[FCM] Token: $_fcmToken');
+    if (_fcmToken != null) {
+      saveTokenToFirestore();
+    }
 
     // Listen for token refresh
     _messaging.onTokenRefresh.listen((newToken) {
@@ -98,9 +103,25 @@ class FCMService {
     _onNotificationTapped?.call(type ?? '', targetId ?? '');
   }
 
+  Future<void> saveTokenToFirestore() async {
+    final token = _fcmToken;
+    if (token == null) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'fcmToken': token,
+        'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('[FCM] Saved token to users/$uid');
+    } catch (e) {
+      debugPrint('[FCM] Error saving token to Firestore: $e');
+    }
+  }
+
   void _onTokenRefresh(String newToken) {
-    // TODO: Gửi token mới lên Firestore users/{uid}/fcm_tokens
     debugPrint('[FCM] Token refreshed: $newToken');
+    saveTokenToFirestore();
   }
 
   // ── Callbacks ──

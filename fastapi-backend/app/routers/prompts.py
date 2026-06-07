@@ -5,7 +5,8 @@ Endpoints for generating empathetic chat suggestions.
 from fastapi import APIRouter, HTTPException, status
 from app.models.prompts import (
     IcebreakersRequest, IcebreakersResponse,
-    ReplySuggestionsRequest, ReplySuggestionsResponse
+    ReplySuggestionsRequest, ReplySuggestionsResponse,
+    PersonalizeNotificationRequest, PersonalizeNotificationResponse
 )
 from app.ml.prompt_engine import prompt_engine
 
@@ -48,3 +49,23 @@ async def suggest_replies(request: ReplySuggestionsRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate reply suggestions: {str(e)}"
         )
+
+@router.post("/personalize-notification", response_model=PersonalizeNotificationResponse)
+async def personalize_notification(request: PersonalizeNotificationRequest):
+    """
+    Generate personalized notification text based on recipient mood.
+    """
+    try:
+        res = prompt_engine.personalize_notification(
+            sender_name=request.sender_name,
+            message_body=request.message_body,
+            recipient_mood=request.recipient_mood
+        )
+        return PersonalizeNotificationResponse(**res)
+    except Exception as e:
+        print(f"❌ Error personalizing notification: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to personalize notification: {str(e)}"
+        )
+

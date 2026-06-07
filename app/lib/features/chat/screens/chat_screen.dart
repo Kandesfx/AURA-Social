@@ -19,6 +19,8 @@ import '../widgets/message_bubble.dart';
 import '../widgets/message_actions_sheet.dart';
 import '../widgets/typing_indicator.dart';
 import '../widgets/chat_input.dart';
+import '../../../providers/api_service_provider.dart';
+import '../../../providers/emotion_profile_provider.dart';
 
 /// AURA Social – Chat Screen
 ///
@@ -42,6 +44,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with WidgetsBindingObserver {
   final _scrollController = ScrollController();
+  final _chatController = TextEditingController();
+  List<String> _replySuggestions = [];
+  bool _loadingSuggestions = false;
   int _previousMessageCount = 0;
   MessageModel? _replyingTo;
 
@@ -72,6 +77,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
+    _chatController.dispose();
 
     // Clear typing khi rời screen
     _clearTyping();
@@ -463,12 +469,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             .toList()
         : messages;
 
-    // Auto-scroll khi có message mới + Đánh dấu đã đọc nếu đang xem cuộc trò chuyện
-    if (messages.length > _previousMessageCount && _previousMessageCount > 0) {
+    // Auto-scroll khi có message mới + Đánh dấu đã đọc nếu đang xem cuộc trò chuyện + Fetch AI gợi ý phản hồi
+    if (messages.length > _previousMessageCount) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottom();
         if (messages.isNotEmpty && !messages.last.isMine(currentUserId)) {
           _markAsRead();
+          _fetchReplySuggestions(messages.last.content);
+        } else if (messages.isNotEmpty && messages.last.isMine(currentUserId)) {
+          setState(() {
+            _replySuggestions = [];
+          });
         }
       });
     }
@@ -600,7 +611,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 ),
               ),
             )
-          else
+          else ...[
+            _buildSuggestionsRow(),
             ChatInput(
               onSend: _handleSend,
               onTypingChanged: _handleTypingChanged,
@@ -608,7 +620,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               onCancelReply: () => setState(() => _replyingTo = null),
               onAttach: _handleImagePick,
               onEmoji: () {},
+              controller: _chatController,
             ),
+          ],
         ],
       ),
     );
@@ -956,6 +970,103 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
         );
       },
+    );
+  }
+
+  Future<void> _fetchReplySuggestions(String lastMessageContent) async {
+    if (lastMessageContent.isEmpty || _loadingSuggestions) return;
+    
+    setState(() {
+      _loadingSuggestions = true;
+    });
+
+    try {
+      final conversations = ref.read(conversationsProvider);
+      final conversation = conversations.firstWhere((c) => c.id == widget.conversationId);
+      
+      // Get partner mood from peer's emotion vector
+      String partnerMood = 'explore';
+      if (conversation.peerEmotionVector != null && conversation.peerEmotionVector!.isNotEmpty) {
+        partnerMood = conversation.peerEmotionVector!.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+      }
+      
+      // Get current user's mood from profile provider
+      final userMood = ref.read(currentEmotionProfileProvider).value?.dominantEmotion ?? 'explore';
+
+      final response = await ref.read(apiServiceProvider).post('/api/v1/prompts/suggest-replies', data: {
+        'last_message': lastMessageContent,
+        'partner_mood': partnerMood,
+        'user_mood': userMood,
+      });
+      
+      final list = List<String>.from(response.data['suggestions'] ?? []);
+      if (mounted) {
+        setState(() {
+          _replySuggestions = list;
+          _loadingSuggestions = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error getting reply suggestions: $e');
+      if (mounted) {
+        setState(() {
+          _replySuggestions = [];
+          _loadingSuggestions = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildSuggestionsRow() {
+    if (_replySuggestions.isEmpty && !_loadingSuggestions) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: _loadingSuggestions
+          ? const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _replySuggestions.length,
+              itemBuilder: (context, index) {
+                final suggestion = _replySuggestions[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    label: Text(
+                      suggestion,
+                      style: AuraTypography.labelMedium.copyWith(
+                        color: AuraColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    backgroundColor: AuraColors.surface,
+                    side: BorderSide(
+                      color: AuraColors.primary.withValues(alpha: 0.3),
+                      width: 0.8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    onPressed: () {
+                      _chatController.text = suggestion;
+                      _chatController.selection = TextSelection.fromPosition(
+                        TextSelection.collapsed(offset: suggestion.length).base,
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
     );
   }
 

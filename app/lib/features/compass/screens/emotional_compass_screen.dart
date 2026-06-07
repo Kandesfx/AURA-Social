@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
@@ -11,23 +12,20 @@ import '../widgets/ai_insight_card.dart';
 ///
 /// Person 4, Task #12
 /// Full emotional profile view: radar chart, 7-day timeline, AI insights.
-class EmotionalCompassScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../services/wellbeing_service.dart';
+
+/// AURA Social – Emotional Compass Screen
+///
+/// Person 4, Task #12
+/// Full emotional profile view: radar chart, 7-day timeline, AI insights.
+class EmotionalCompassScreen extends ConsumerWidget {
   const EmotionalCompassScreen({super.key});
 
-  // Mock data
-  static const _emotionVector = {
-    'joy': 0.30,
-    'trust': 0.20,
-    'anticipation': 0.25,
-    'surprise': 0.10,
-    'sadness': 0.05,
-    'fear': 0.04,
-    'anger': 0.03,
-    'disgust': 0.03,
-  };
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reportAsync = ref.watch(weeklyReportProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Emotional Compass'),
@@ -42,59 +40,184 @@ class EmotionalCompassScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 60),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-
-            // ── Current Mood Header ──
-            _buildMoodHeader()
-                .animate().fadeIn(duration: 500.ms).slideY(begin: -0.05),
-
-            const SizedBox(height: 24),
-
-            // ── Radar Chart ──
-            _buildRadarSection()
-                .animate().fadeIn(duration: 500.ms, delay: 100.ms)
-                .scale(begin: const Offset(0.9, 0.9), duration: 500.ms, curve: Curves.easeOutBack),
-
-            const SizedBox(height: 24),
-
-            // ── Emotion Breakdown ──
-            _buildEmotionBreakdown()
-                .animate().fadeIn(duration: 400.ms, delay: 200.ms),
-
-            const SizedBox(height: 24),
-
-            // ── 7-Day Timeline ──
-            _buildTimelineSection()
-                .animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.05),
-
-            const SizedBox(height: 24),
-
-            // ── AI Insight ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: const AIInsightCard(
-                insight: 'Bạn thường vui vào cuối tuần và stressed vào T3-T4. '
-                    'Hoạt động thể chất giúp tăng mood của bạn đáng kể.',
-                suggestion: 'Hãy thử dành 15 phút tập thể dục vào buổi sáng T3-T4',
-                wellbeingScore: 72,
-              ),
-            ).animate().fadeIn(duration: 400.ms, delay: 400.ms).slideY(begin: 0.05),
-          ],
+      body: reportAsync.when(
+        loading: () => Center(
+          child: CircularProgressIndicator(color: AuraColors.primary),
         ),
+        error: (err, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Không thể tải báo cáo tâm trạng',
+                style: AuraTypography.titleMedium.copyWith(
+                  color: AuraColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref.refresh(weeklyReportProvider),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AuraColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text('Thử lại'),
+              ),
+            ],
+          ),
+        ),
+        data: (report) {
+          final rawDistribution = report['mood_distribution'];
+          final emotionVector = rawDistribution is Map
+              ? Map<String, dynamic>.from(rawDistribution).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))
+              : <String, double>{};
+          
+          final dominant = report['dominant_emotion'] as String? ?? 'explore';
+          final stabilityLabel = report['stability_label'] as String? ?? 'Ổn định';
+          final stabilityIndex = (report['stability_index'] as num? ?? 0.8).toDouble();
+          final personalizedLetter = report['personalized_letter'] as String? ?? '';
+          final selfCarePlan = Map<String, dynamic>.from(report['self_care_plan'] ?? {});
+          final activities = List<String>.from(selfCarePlan['activities'] ?? []);
+          final suggestionText = activities.isNotEmpty ? activities.join('\n• ') : '';
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 60),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+
+                // ── Current Mood Header ──
+                _buildMoodHeader(emotionVector, dominant, stabilityLabel, stabilityIndex)
+                    .animate().fadeIn(duration: 500.ms).slideY(begin: -0.05),
+
+                const SizedBox(height: 24),
+
+                // ── Radar Chart ──
+                _buildRadarSection(emotionVector)
+                    .animate().fadeIn(duration: 500.ms, delay: 100.ms)
+                    .scale(begin: const Offset(0.9, 0.9), duration: 500.ms, curve: Curves.easeOutBack),
+
+                const SizedBox(height: 24),
+
+                // ── Emotion Breakdown ──
+                _buildEmotionBreakdown(emotionVector)
+                    .animate().fadeIn(duration: 400.ms, delay: 200.ms),
+
+                const SizedBox(height: 24),
+
+                // ── 7-Day Timeline ──
+                _buildTimelineSection()
+                    .animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.05),
+
+                const SizedBox(height: 24),
+
+                // ── AI Insight ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: AIInsightCard(
+                    insight: personalizedLetter,
+                    suggestion: suggestionText.isNotEmpty ? '• $suggestionText' : null,
+                    wellbeingScore: (stabilityIndex * 100).round(),
+                  ),
+                ).animate().fadeIn(duration: 400.ms, delay: 400.ms).slideY(begin: 0.05),
+                const SizedBox(height: 24),
+                _buildChallengesBanner(context).animate().fadeIn(duration: 400.ms, delay: 450.ms).slideY(begin: 0.05),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildMoodHeader() {
-    // Find dominant emotion
-    final sorted = _emotionVector.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final dominant = sorted.first;
-    final dominantColor = AuraColors.getEmotionColor(dominant.key);
+  Widget _buildChallengesBanner(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AuraColors.primary.withValues(alpha: 0.15),
+            AuraColors.secondary.withValues(alpha: 0.15),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AuraColors.primary.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AuraColors.primary.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.eco_outlined,
+              color: AuraColors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thử thách tâm hồn',
+                  style: AuraTypography.titleMedium.copyWith(
+                    color: AuraColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Rèn luyện tinh thần cùng AI hàng ngày.',
+                  style: AuraTypography.bodySmall.copyWith(
+                    color: AuraColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => GoRouter.of(context).push('/challenges'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AuraColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text('Bắt đầu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoodHeader(Map<String, double> emotionVector, String dominant, String stabilityLabel, double stabilityIndex) {
+    final dominantColor = AuraColors.getEmotionColor(dominant);
+
+    // Calculate valence: positive emotions minus negative emotions
+    final joy = emotionVector['joy'] ?? 0.0;
+    final trust = emotionVector['trust'] ?? 0.0;
+    final anticipation = emotionVector['anticipation'] ?? 0.0;
+    final sadness = emotionVector['sadness'] ?? 0.0;
+    final fear = emotionVector['fear'] ?? 0.0;
+    final anger = emotionVector['anger'] ?? 0.0;
+    final disgust = emotionVector['disgust'] ?? 0.0;
+    final valence = (joy + trust + anticipation) - (sadness + fear + anger + disgust);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -115,7 +238,7 @@ class EmotionalCompassScreen extends StatelessWidget {
         children: [
           AuraRing(
             size: 60,
-            emotionVector: _emotionVector,
+            emotionVector: emotionVector,
             glowIntensity: 0.5,
           ),
           const SizedBox(width: 14),
@@ -125,7 +248,7 @@ class EmotionalCompassScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text('Mood hiện tại',
+                    Text('Mood trung bình',
                         style: AuraTypography.labelMedium.copyWith(
                           color: AuraColors.textTertiary)),
                     const SizedBox(width: 8),
@@ -136,15 +259,15 @@ class EmotionalCompassScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '🧭 explore',
-                        style: AuraTypography.labelSmall.copyWith(color: dominantColor),
+                        '🧭 $stabilityLabel',
+                        style: AuraTypography.labelSmall.copyWith(color: dominantColor, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${_getEmoji(dominant.key)} ${_capitalize(dominant.key)}',
+                  '${_getEmoji(dominant)} ${_capitalize(dominant)}',
                   style: AuraTypography.headlineSmall.copyWith(
                     color: dominantColor,
                     fontWeight: FontWeight.w700,
@@ -155,12 +278,17 @@ class EmotionalCompassScreen extends StatelessWidget {
                   children: [
                     Text('Valence: ', style: AuraTypography.bodySmall.copyWith(
                       color: AuraColors.textTertiary)),
-                    Text('+0.65', style: AuraTypography.bodySmall.copyWith(
-                      color: AuraColors.success, fontWeight: FontWeight.w600)),
+                    Text(
+                      valence >= 0 ? '+${valence.toStringAsFixed(2)}' : valence.toStringAsFixed(2),
+                      style: AuraTypography.bodySmall.copyWith(
+                        color: valence >= 0 ? AuraColors.success : AuraColors.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Text('Confidence: ', style: AuraTypography.bodySmall.copyWith(
+                    Text('Stability: ', style: AuraTypography.bodySmall.copyWith(
                       color: AuraColors.textTertiary)),
-                    Text('78%', style: AuraTypography.bodySmall.copyWith(
+                    Text('${(stabilityIndex * 100).round()}%', style: AuraTypography.bodySmall.copyWith(
                       color: AuraColors.textSecondary, fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -172,7 +300,7 @@ class EmotionalCompassScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRadarSection() {
+  Widget _buildRadarSection(Map<String, double> emotionVector) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -201,14 +329,14 @@ class EmotionalCompassScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const EmotionRadarChart(emotionVector: _emotionVector, size: 240),
+          EmotionRadarChart(emotionVector: emotionVector, size: 240),
         ],
       ),
     );
   }
 
-  Widget _buildEmotionBreakdown() {
-    final sorted = _emotionVector.entries.toList()
+  Widget _buildEmotionBreakdown(Map<String, double> emotionVector) {
+    final sorted = emotionVector.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return Container(
@@ -242,7 +370,7 @@ class EmotionalCompassScreen extends StatelessWidget {
             child: Text(_getEmoji(emotion), style: const TextStyle(fontSize: 14)),
           ),
           SizedBox(
-            width: 72,
+            width: 84,
             child: Text(_capitalize(emotion),
                 style: AuraTypography.labelMedium.copyWith(color: AuraColors.textSecondary)),
           ),

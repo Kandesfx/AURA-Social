@@ -46,6 +46,7 @@ class UserModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? privacyConsentAt;
+  final bool crisisWatch;
 
   const UserModel({
     required this.uid,
@@ -71,6 +72,7 @@ class UserModel {
     this.createdAt,
     this.updatedAt,
     this.privacyConsentAt,
+    this.crisisWatch = false,
   });
 
   /// Tạo UserModel từ Firestore DocumentSnapshot.
@@ -102,6 +104,7 @@ class UserModel {
       createdAt: (data['created_at'] as Timestamp?)?.toDate(),
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate(),
       privacyConsentAt: (data['privacy_consent_at'] as Timestamp?)?.toDate(),
+      crisisWatch: data['crisis_watch'] ?? false,
     );
   }
 
@@ -139,6 +142,7 @@ class UserModel {
       'privacy_consent_at': privacyConsentAt != null
           ? Timestamp.fromDate(privacyConsentAt!)
           : null,
+      'crisis_watch': crisisWatch,
     };
   }
 
@@ -159,6 +163,7 @@ class UserModel {
     Map<String, dynamic>? aiSettings,
     bool? isOnline,
     String? fcmToken,
+    bool? crisisWatch,
   }) {
     return UserModel(
       uid: uid,
@@ -184,6 +189,7 @@ class UserModel {
       createdAt: createdAt,
       updatedAt: updatedAt,
       privacyConsentAt: privacyConsentAt,
+      crisisWatch: crisisWatch ?? this.crisisWatch,
     );
   }
 

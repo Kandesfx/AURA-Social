@@ -34,3 +34,16 @@ class ModerationCheckResponse(BaseModel):
     flagged_categories: List[str]
     cleaned_text: str
 
+
+class ContentAssistRequest(BaseModel):
+    """Request schema for AI writing assistant."""
+    text: Optional[str] = ""
+    mood_theme: Optional[str] = "warm"
+    media_url: Optional[str] = None
+
+
+class ContentAssistResponse(BaseModel):
+    """Response schema from AI writing assistant."""
+    suggestions: List[str]
+    predicted_emotion_vector: Dict[str, float]
+

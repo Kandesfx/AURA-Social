@@ -32,6 +32,10 @@ async def generate_feed(
         if user_ref.exists:
             user_profile = user_ref.to_dict()
             user_profile['uid'] = uid
+            # Override emotional mode if crisis_watch is active
+            if user_profile.get('crisis_watch', False):
+                user_profile['emotional_mode'] = 'gentle_uplift'
+                print(f"🚨 User {uid} is in crisis_watch mode. Forcing emotional_mode to gentle_uplift.")
         else:
             # Fallback default profile if not found
             user_profile = {
@@ -94,7 +98,26 @@ async def generate_feed(
             post_id = post.get('post_id') or post.get('id')
             score = post.get('relevance_score', 0.5)
             reason = post.get('relevance_reason', '')
-            items.append(FeedItem(post_id=post_id, score=score, reason=reason))
+            
+            # Serialize post data for client
+            post_data = {
+                'post_id': post_id,
+                'user_id': post.get('user_id', ''),
+                'content': post.get('content', ''),
+                'media_type': post.get('media_type', 'none'),
+                'media_urls': post.get('media_urls', []),
+                'ai_emotion_vector': post.get('ai_emotion_vector', {}),
+                'reactions_count': post.get('reactions_count', 0),
+                'comments_count': post.get('comments_count', 0),
+                'author_name': post.get('author_name', 'User'),
+                'author_username': post.get('author_username', ''),
+                'author_avatar_url': post.get('author_avatar_url'),
+                'author_dominant_emotion': post.get('author_dominant_emotion', 'explore'),
+                'is_breaker': post.get('is_breaker', False),
+                'breaker_type': post.get('breaker_type'),
+                'created_at': str(post.get('created_at', '')),
+            }
+            items.append(FeedItem(post_id=post_id, score=score, reason=reason, post_data=post_data))
 
         emotional_mode = user_profile.get('emotional_mode', 'explore')
         dominant_emotion = sorted(user_emotion.items(), key=lambda x: x[1], reverse=True)[0][0]

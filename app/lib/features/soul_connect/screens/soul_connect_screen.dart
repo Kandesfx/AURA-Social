@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:lottie/lottie.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../providers/soul_provider.dart';
@@ -142,22 +143,32 @@ class SoulConnectScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AuraColors.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: AuraColors.primary,
-              ),
+          SizedBox(
+            width: 160,
+            height: 160,
+            child: Lottie.network(
+              'https://lottie.host/809f6354-9a84-406f-b258-297eb09ef7ee/7qZc141l20.json',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AuraColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: AuraColors.primary,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Text(
             'Đang tìm tâm hồn đồng điệu...',
             style: AuraTypography.bodyLarge.copyWith(
@@ -173,8 +184,7 @@ class SoulConnectScreen extends ConsumerWidget {
           ),
         ],
       ).animate()
-          .fadeIn(duration: 500.ms)
-          .shimmer(delay: 500.ms, duration: 1500.ms),
+          .fadeIn(duration: 500.ms),
     );
   }
 
@@ -232,20 +242,30 @@ class SoulConnectScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AuraColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.favorite_border_rounded,
-                size: 48,
-                color: AuraColors.primary.withValues(alpha: 0.5),
+            SizedBox(
+              width: 180,
+              height: 180,
+              child: Lottie.network(
+                'https://lottie.host/ea9b110a-360d-450e-b8cc-5e5d36e2f1e2/mR07GZJ8tA.json',
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: AuraColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.favorite_border_rounded,
+                      size: 48,
+                      color: AuraColors.primary.withValues(alpha: 0.5),
+                    ),
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
               'Chưa có gợi ý nào',
               style: AuraTypography.headlineSmall.copyWith(

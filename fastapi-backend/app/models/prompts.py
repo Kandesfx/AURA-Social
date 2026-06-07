@@ -19,3 +19,12 @@ class ReplySuggestionsRequest(BaseModel):
 
 class ReplySuggestionsResponse(BaseModel):
     suggestions: List[str]
+
+class PersonalizeNotificationRequest(BaseModel):
+    sender_name: str
+    message_body: str
+    recipient_mood: str
+
+class PersonalizeNotificationResponse(BaseModel):
+    title: str
+    body: str

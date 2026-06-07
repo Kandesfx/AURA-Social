@@ -19,6 +19,7 @@ class ChatInput extends StatefulWidget {
     this.onTypingChanged,
     this.replyingTo,
     this.onCancelReply,
+    this.controller,
   });
 
   final void Function(String message) onSend;
@@ -26,6 +27,7 @@ class ChatInput extends StatefulWidget {
   final VoidCallback? onEmoji;
   final bool enabled;
   final void Function(bool isTyping)? onTypingChanged;
+  final TextEditingController? controller;
 
   /// Tin nhắn đang reply (null = không reply)
   final MessageModel? replyingTo;
@@ -39,7 +41,8 @@ class ChatInput extends StatefulWidget {
 
 class _ChatInputState extends State<ChatInput>
     with SingleTickerProviderStateMixin {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
+  bool _isLocalController = false;
   final _focusNode = FocusNode();
   bool _hasText = false;
   bool _showEmoji = false;
@@ -47,6 +50,13 @@ class _ChatInputState extends State<ChatInput>
   @override
   void initState() {
     super.initState();
+    if (widget.controller != null) {
+      _controller = widget.controller!;
+      _isLocalController = false;
+    } else {
+      _controller = TextEditingController();
+      _isLocalController = true;
+    }
     _controller.addListener(_onTextChanged);
     _focusNode.addListener(_onFocusChanged);
   }
@@ -72,7 +82,9 @@ class _ChatInputState extends State<ChatInput>
   void dispose() {
     _controller.removeListener(_onTextChanged);
     _focusNode.removeListener(_onFocusChanged);
-    _controller.dispose();
+    if (_isLocalController) {
+      _controller.dispose();
+    }
     _focusNode.dispose();
     super.dispose();
   }

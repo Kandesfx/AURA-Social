@@ -1,40 +1,107 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/services/api_service.dart';
+import '../providers/api_service_provider.dart';
 
 /// AURA Social – Feed Service
 ///
 /// Person 4, Task #3
 /// Service gọi FastAPI /feed/generate để lấy AI-curated feed.
-/// Hiện tại sử dụng mock data (chờ backend deploy).
 ///
 /// Khi backend ready → chỉ cần replace _mockForYouFeed() bằng HTTP call.
 class FeedService {
-  FeedService();
+  final AuraApiService _apiService;
+
+  FeedService(this._apiService);
 
   /// Lấy For You feed (AI-curated)
   ///
   /// Gọi FastAPI: POST /feed/generate
-  /// Body: { user_id, emotion_vector, context }
-  /// Response: { posts: [...], feed_meta: {...} }
+  /// Body: { cursor, limit }
+  /// Response: FeedResponse (items, next_cursor, emotional_reason)
   Future<FeedResult> getForYouFeed({int page = 0, int limit = 20}) async {
-    // TODO: Replace với real API call khi backend ready
-    // final response = await _apiService.post('/feed/generate', data: {
-    //   'user_id': uid,
-    //   'page': page,
-    //   'limit': limit,
-    // });
+    try {
+      final cursor = (page * limit).toString();
+      final response = await _apiService.post('/api/v1/feed/generate', data: {
+        'cursor': cursor,
+        'limit': limit,
+      });
 
-    await Future.delayed(const Duration(milliseconds: 800)); // Simulate latency
+      final data = response.data;
+      final List<dynamic> items = data['items'] ?? [];
 
-    return FeedResult(
-      posts: _mockForYouPosts,
-      hasMore: page < 3, // 3 pages of mock data
-      feedMeta: FeedMeta(
-        emotionalMode: 'explore',
-        diversityScore: 0.75,
-        generatedAt: DateTime.now(),
-      ),
-    );
+      final posts = items.map((item) {
+        final postData = Map<String, dynamic>.from(item['post_data'] ?? {});
+        final reason = item['reason'] as String? ?? '';
+
+        // Enrich postData with the recommendation reason so we can show it on the PostCard
+        postData['relevance_reason'] = reason;
+
+        // Map fields to match what feed_screen.dart / PostModel.fromMockMap expects
+        final mediaUrls = List<String>.from(postData['media_urls'] ?? []);
+        final hasImage = (postData['media_type'] ?? 'none') == 'image' && mediaUrls.isNotEmpty;
+
+        // Format timeAgo
+        DateTime createdAt = DateTime.now();
+        if (postData['created_at'] != null) {
+          try {
+            createdAt = DateTime.parse(postData['created_at'].toString());
+          } catch (_) {}
+        }
+        final diff = DateTime.now().difference(createdAt);
+        String timeAgoText = '1h';
+        if (diff.inMinutes < 60) {
+          timeAgoText = '${diff.inMinutes}m';
+        } else if (diff.inHours < 24) {
+          timeAgoText = '${diff.inHours}h';
+        } else {
+          timeAgoText = '${diff.inDays}d';
+        }
+
+        return {
+          'id': postData['post_id'] ?? postData['id'] ?? '',
+          'userId': postData['user_id'] ?? '',
+          'userName': postData['author_name'] ?? 'User',
+          'userHandle': postData['author_username'] != null ? '@${postData['author_username']}' : '',
+          'timeAgo': timeAgoText,
+          'content': postData['content'] ?? '',
+          'hasImage': hasImage,
+          'imageUrl': hasImage ? mediaUrls.first : null,
+          'emotionVector': postData['ai_emotion_vector'] ?? {},
+          'reactions': postData['reactions_breakdown'] ?? {},
+          'commentCount': postData['comments_count'] ?? 0,
+          'avatarUrl': postData['author_avatar_url'],
+          'is_breaker': postData['is_breaker'] ?? false,
+          'breaker_type': postData['breaker_type'],
+          'relevance_reason': reason,
+        };
+      }).toList();
+
+      final hasMore = data['next_cursor'] != null;
+      final emotionalReason = data['emotional_reason'] as String? ?? 'explore';
+
+      return FeedResult(
+        posts: posts,
+        hasMore: hasMore,
+        feedMeta: FeedMeta(
+          emotionalMode: emotionalReason,
+          diversityScore: 0.75,
+          generatedAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('[FeedService] Error getting For You feed from backend: $e');
+      return FeedResult(
+        posts: [],
+        hasMore: false,
+        feedMeta: FeedMeta(
+          emotionalMode: 'explore',
+          diversityScore: 0.0,
+          generatedAt: DateTime.now(),
+        ),
+      );
+    }
   }
 
   /// Lấy Following feed (chronological) từ Firestore (thực tế)
@@ -152,7 +219,7 @@ class FeedService {
 
 /// Provider cho FeedService
 final feedServiceProvider = Provider<FeedService>((ref) {
-  return FeedService();
+  return FeedService(ref.read(apiServiceProvider));
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -183,68 +250,5 @@ class FeedMeta {
   });
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MOCK DATA
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-final List<Map<String, dynamic>> _mockForYouPosts = [
-  {
-    'id': '1',
-    'userName': 'Minh Anh',
-    'userHandle': '@minhanh',
-    'timeAgo': '2h',
-    'content': 'Hôm nay tôi cảm thấy thật tuyệt vời khi được nhìn thấy hoàng hôn trên biển. Có ai cũng thích ngắm hoàng hôn không? 🌅',
-    'hasImage': true,
-    'imageUrl': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
-    'emotionVector': {'joy': 0.45, 'trust': 0.2, 'anticipation': 0.15, 'surprise': 0.1, 'sadness': 0.05, 'fear': 0.02, 'anger': 0.01, 'disgust': 0.02},
-    'reactions': {'joy': 24, 'trust': 8, 'anticipation': 5, 'surprise': 3, 'sadness': 0, 'fear': 0, 'anger': 0, 'disgust': 0},
-    'commentCount': 12,
-  },
-  {
-    'id': '2',
-    'userName': 'Hoàng Dũng',
-    'userHandle': '@hoangdung',
-    'timeAgo': '4h',
-    'content': 'Just shipped a new feature at work! The feeling when your code compiles without errors on the first try 🚀\n\n#coding #developer #happyday',
-    'hasImage': false,
-    'emotionVector': {'joy': 0.35, 'anticipation': 0.3, 'trust': 0.15, 'surprise': 0.1, 'sadness': 0.03, 'fear': 0.02, 'anger': 0.03, 'disgust': 0.02},
-    'reactions': {'joy': 42, 'anticipation': 15, 'trust': 7, 'surprise': 12, 'sadness': 0, 'fear': 0, 'anger': 0, 'disgust': 0},
-    'commentCount': 23,
-  },
-  {
-    'id': '3',
-    'userName': 'Thu Hà',
-    'userHandle': '@thuha_dreamer',
-    'timeAgo': '6h',
-    'content': 'Nghe playlist lofi chill cả buổi chiều, thời tiết mát mát là lý do hoàn hảo để pha một ly cà phê nóng và đọc sách 📖☕',
-    'hasImage': true,
-    'imageUrl': 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600',
-    'emotionVector': {'trust': 0.3, 'joy': 0.25, 'anticipation': 0.15, 'surprise': 0.05, 'sadness': 0.1, 'fear': 0.05, 'anger': 0.05, 'disgust': 0.05},
-    'reactions': {'trust': 18, 'joy': 14, 'anticipation': 3, 'surprise': 1, 'sadness': 2, 'fear': 0, 'anger': 0, 'disgust': 0},
-    'commentCount': 8,
-  },
-  {
-    'id': '4',
-    'userName': 'Khánh Linh',
-    'userHandle': '@khanhlinh',
-    'timeAgo': '8h',
-    'content': 'Cuối tuần rồi mà vẫn phải làm deadline 😅 Ai đang cùng cảnh ngộ thì comment đi, mình cùng nhau cố lên! 💪',
-    'hasImage': false,
-    'emotionVector': {'anticipation': 0.35, 'trust': 0.2, 'joy': 0.15, 'fear': 0.1, 'sadness': 0.1, 'surprise': 0.05, 'anger': 0.03, 'disgust': 0.02},
-    'reactions': {'anticipation': 31, 'trust': 12, 'joy': 8, 'sadness': 5, 'fear': 3, 'surprise': 0, 'anger': 0, 'disgust': 0},
-    'commentCount': 18,
-  },
-  {
-    'id': '5',
-    'userName': 'Tuấn Kiệt',
-    'userHandle': '@tuankiet',
-    'timeAgo': '12h',
-    'content': 'Vừa chạy được 5km sáng nay 🏃‍♂️ Cảm giác khoan khoái vô cùng! Ai muốn join running club không?',
-    'hasImage': true,
-    'imageUrl': 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600',
-    'emotionVector': {'joy': 0.4, 'anticipation': 0.25, 'trust': 0.15, 'surprise': 0.05, 'sadness': 0.05, 'fear': 0.05, 'anger': 0.03, 'disgust': 0.02},
-    'reactions': {'joy': 56, 'anticipation': 20, 'trust': 10, 'surprise': 5, 'sadness': 0, 'fear': 0, 'anger': 0, 'disgust': 0},
-    'commentCount': 15,
-  },
-];
 

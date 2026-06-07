@@ -27,11 +27,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️  R2 Storage not configured: {e}")
 
-    # TODO: Load ML models at startup (Person 2)
-    # from app.ml.model_loader import ModelLoader
-    # app.state.models = ModelLoader()
-    # app.state.models.load_all()
-    # print("✅ ML models loaded")
+    # Load ML models at startup
+    from app.ml.model_loader import model_loader
+    model_loader.load_all()
+    app.state.model_loader = model_loader
+    print("✅ ML models loaded")
 
     print(f"🚀 AURA Social API v{settings.api_version} started")
     yield
@@ -70,12 +70,14 @@ app.include_router(feed.router, prefix="/api/v1/feed", tags=["Feed"])
 app.include_router(content.router, prefix="/api/v1/content", tags=["Content"])
 app.include_router(upload.router, prefix="/api/v1/upload", tags=["Upload"])
 
-# TODO: Person 2 sẽ thêm các routers sau:
-# from app.routers import soul, waves, wellbeing, prompts
-# app.include_router(soul.router, prefix="/api/v1/soul", tags=["Soul Connect"])
-# app.include_router(waves.router, prefix="/api/v1/waves", tags=["Waves"])
-# app.include_router(wellbeing.router, prefix="/api/v1/wellbeing", tags=["Wellbeing"])
-# app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["Prompts"])
+# Include Soul Connect Router
+from app.routers import soul
+app.include_router(soul.router, prefix="/api/v1/soul", tags=["Soul Connect"])
+
+# Include Wellbeing and Prompts Routers (Phase 5)
+from app.routers import wellbeing, prompts
+app.include_router(wellbeing.router, prefix="/api/v1/wellbeing", tags=["Wellbeing"])
+app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["Prompts"])
 
 
 # ── Health Check ──

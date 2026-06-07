@@ -93,11 +93,11 @@
 | 36 | Code review tất cả PRs | Git | 🔴 |
 
 **Deliverables:**
-- [ ] Tất cả AI endpoints trả dữ liệu thực (không mock)
-- [ ] HuggingFace model loads + inference thành công
+- [x] Tất cả AI endpoints trả dữ liệu thực (không mock)
+- [x] HuggingFace model loads + inference thành công
 - [ ] Firestore + RTDB rules deployed
 - [ ] Cloud Functions deployed
-- [ ] FastAPI deployed trên Cloud Run
+- [x] FastAPI deployed trên Cloud Run
 
 ---
 

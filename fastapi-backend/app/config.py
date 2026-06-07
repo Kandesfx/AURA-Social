@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     emotion_model: str = "nlptown/bert-base-multilingual-uncased-sentiment"
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
+    # Generative AI
+    gemini_api_key: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

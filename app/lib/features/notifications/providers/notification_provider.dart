@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// AURA Social – Notification Provider
@@ -68,6 +71,38 @@ class NotificationItem {
       senderEmotionVector: senderEmotionVector,
     );
   }
+
+  factory NotificationItem.fromMap(Map<String, dynamic> map, String id) {
+    final rawEmotion = map['sender_emotion_vector'];
+    final emotionVector = rawEmotion is Map
+        ? Map<String, dynamic>.from(rawEmotion).map(
+            (k, v) => MapEntry(k, (v as num).toDouble()),
+          )
+        : null;
+
+    DateTime parsedDate = DateTime.now();
+    if (map['created_at'] is Timestamp) {
+      parsedDate = (map['created_at'] as Timestamp).toDate();
+    } else if (map['created_at'] is String) {
+      parsedDate = DateTime.tryParse(map['created_at']) ?? DateTime.now();
+    }
+
+    return NotificationItem(
+      id: id,
+      type: NotificationType.values.firstWhere(
+        (e) => e.name == map['type'],
+        orElse: () => NotificationType.system,
+      ),
+      title: map['title'] as String? ?? 'Thông báo',
+      body: map['body'] as String? ?? '',
+      avatarUrl: map['avatar_url'] as String?,
+      targetId: map['target_id'] as String?,
+      senderName: map['sender_name'] as String? ?? 'Hệ thống',
+      createdAt: parsedDate,
+      isRead: map['is_read'] as bool? ?? false,
+      senderEmotionVector: emotionVector,
+    );
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -105,33 +140,96 @@ class NotificationState {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 class NotificationNotifier extends StateNotifier<NotificationState> {
+  StreamSubscription? _subscription;
+
   NotificationNotifier() : super(const NotificationState(isLoading: true)) {
     _loadNotifications();
   }
 
-  Future<void> _loadNotifications() async {
-    // TODO: Replace với Firestore stream
-    await Future.delayed(const Duration(milliseconds: 500));
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
 
-    state = NotificationState(
-      notifications: _mockNotifications,
-      isLoading: false,
-    );
+  Future<void> _loadNotifications() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      state = const NotificationState(notifications: [], isLoading: false);
+      return;
+    }
+
+    _subscription?.cancel();
+    _subscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .orderBy('created_at', descending: true)
+        .limit(50)
+        .snapshots()
+        .listen((snapshot) {
+      final notifications = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return NotificationItem.fromMap(data, doc.id);
+      }).toList();
+
+      state = NotificationState(
+        notifications: notifications,
+        isLoading: false,
+      );
+    }, onError: (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    });
   }
 
   /// Đánh dấu một notification là đã đọc
-  void markAsRead(String notificationId) {
+  Future<void> markAsRead(String notificationId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
     final updated = state.notifications.map((n) {
       if (n.id == notificationId) return n.copyWith(isRead: true);
       return n;
     }).toList();
     state = state.copyWith(notifications: updated);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .doc(notificationId)
+          .update({'is_read': true});
+    } catch (e) {
+      // Bỏ qua lỗi hoặc revert nếu cần
+    }
   }
 
   /// Đánh dấu tất cả là đã đọc
-  void markAllAsRead() {
+  Future<void> markAllAsRead() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final unreadList = state.notifications.where((n) => !n.isRead).toList();
+    if (unreadList.isEmpty) return;
+
     final updated = state.notifications.map((n) => n.copyWith(isRead: true)).toList();
     state = state.copyWith(notifications: updated);
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      for (var n in unreadList) {
+        final docRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('notifications')
+            .doc(n.id);
+        batch.update(docRef, {'is_read': true});
+      }
+      await batch.commit();
+    } catch (e) {
+      // Bỏ qua lỗi hoặc revert nếu cần
+    }
   }
 
   /// Refresh notifications
@@ -155,93 +253,4 @@ final unreadNotificationCountProvider = Provider<int>((ref) {
   return ref.watch(notificationProvider).unreadCount;
 });
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MOCK DATA
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-final _now = DateTime.now();
-
-final _mockNotifications = [
-  NotificationItem(
-    id: 'n1',
-    type: NotificationType.reaction,
-    title: 'Reaction mới',
-    body: 'đã react 😊 Joy lên bài viết của bạn',
-    senderName: 'Minh Anh',
-    targetId: 'post_1',
-    createdAt: _now.subtract(const Duration(minutes: 5)),
-    senderEmotionVector: {'joy': 0.4, 'trust': 0.25, 'anticipation': 0.15, 'surprise': 0.1, 'sadness': 0.05, 'fear': 0.02, 'anger': 0.01, 'disgust': 0.02},
-  ),
-  NotificationItem(
-    id: 'n2',
-    type: NotificationType.follow,
-    title: 'Người theo dõi mới',
-    body: 'đã bắt đầu theo dõi bạn',
-    senderName: 'Hoàng Dũng',
-    targetId: 'user_2',
-    createdAt: _now.subtract(const Duration(minutes: 30)),
-    senderEmotionVector: {'anticipation': 0.35, 'joy': 0.25, 'trust': 0.2, 'surprise': 0.1, 'sadness': 0.03, 'fear': 0.02, 'anger': 0.03, 'disgust': 0.02},
-  ),
-  NotificationItem(
-    id: 'n3',
-    type: NotificationType.soulConnect,
-    title: 'Soul Connect 💜',
-    body: 'Bạn có một Soul Connection mới!',
-    senderName: 'Thu Hà',
-    targetId: 'soul_1',
-    createdAt: _now.subtract(const Duration(hours: 1)),
-    senderEmotionVector: {'trust': 0.35, 'joy': 0.3, 'anticipation': 0.15, 'surprise': 0.05, 'sadness': 0.05, 'fear': 0.05, 'anger': 0.03, 'disgust': 0.02},
-  ),
-  NotificationItem(
-    id: 'n4',
-    type: NotificationType.message,
-    title: 'Tin nhắn mới',
-    body: 'đã gửi cho bạn một tin nhắn',
-    senderName: 'Khánh Linh',
-    targetId: 'conv_1',
-    createdAt: _now.subtract(const Duration(hours: 2)),
-    isRead: true,
-    senderEmotionVector: {'joy': 0.3, 'trust': 0.2, 'anticipation': 0.2, 'surprise': 0.1, 'sadness': 0.1, 'fear': 0.05, 'anger': 0.03, 'disgust': 0.02},
-  ),
-  NotificationItem(
-    id: 'n5',
-    type: NotificationType.waveInvite,
-    title: 'Wave mới 🌊',
-    body: 'Bạn đã được mời tham gia wave "Đêm Không Ngủ"',
-    senderName: 'System',
-    targetId: 'wave_1',
-    createdAt: _now.subtract(const Duration(hours: 3)),
-    isRead: true,
-  ),
-  NotificationItem(
-    id: 'n6',
-    type: NotificationType.reaction,
-    title: 'Reaction mới',
-    body: 'đã react 🤗 Trust lên bài viết của bạn',
-    senderName: 'Tuấn Kiệt',
-    targetId: 'post_2',
-    createdAt: _now.subtract(const Duration(hours: 5)),
-    isRead: true,
-    senderEmotionVector: {'trust': 0.35, 'joy': 0.25, 'anticipation': 0.2, 'surprise': 0.1, 'sadness': 0.05, 'fear': 0.02, 'anger': 0.01, 'disgust': 0.02},
-  ),
-  NotificationItem(
-    id: 'n7',
-    type: NotificationType.follow,
-    title: 'Người theo dõi mới',
-    body: 'đã bắt đầu theo dõi bạn',
-    senderName: 'Đức Minh',
-    targetId: 'user_5',
-    createdAt: _now.subtract(const Duration(hours: 8)),
-    isRead: true,
-    senderEmotionVector: {'joy': 0.3, 'anticipation': 0.25, 'trust': 0.2, 'surprise': 0.15, 'sadness': 0.03, 'fear': 0.02, 'anger': 0.03, 'disgust': 0.02},
-  ),
-  NotificationItem(
-    id: 'n8',
-    type: NotificationType.system,
-    title: 'Wellbeing Check 🌟',
-    body: 'Wellbeing score tuần này: 72/100. Bạn đang làm rất tốt!',
-    senderName: 'AURA AI',
-    createdAt: _now.subtract(const Duration(days: 1)),
-    isRead: true,
-  ),
-];

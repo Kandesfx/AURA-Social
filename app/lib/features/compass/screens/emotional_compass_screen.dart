@@ -38,7 +38,6 @@ class EmotionalCompassScreen extends ConsumerWidget {
           ),
         ],
       ),
-<<<<<<< HEAD
       body: reportAsync.when(
         loading: () => Center(
           child: CircularProgressIndicator(color: AuraColors.primary),

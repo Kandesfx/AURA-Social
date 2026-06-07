@@ -29,8 +29,18 @@ void main() {
         ),
       );
 
-      expect(find.text('Test User'), findsOneWidget);
-      expect(find.textContaining('đã react'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is RichText && widget.text.toPlainText().contains('Test User'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is RichText && widget.text.toPlainText().contains('đã react'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows unread indicator when not read', (tester) async {

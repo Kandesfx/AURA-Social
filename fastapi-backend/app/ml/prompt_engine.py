@@ -73,7 +73,7 @@ class PromptEngine:
             return None
         try:
             genai.configure(api_key=settings.gemini_api_key)
-            return genai.GenerativeModel('gemini-1.5-flash')
+            return genai.GenerativeModel('gemini-2.0-flash')
         except Exception as e:
             print(f"⚠️ PromptEngine: Failed to configure Gemini API client: {e}")
             return None

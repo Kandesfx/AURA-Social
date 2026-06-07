@@ -1,12 +1,14 @@
  import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../features/chat/providers/chat_provider.dart';
 
 /// AURA Social – Main Scaffold with Bottom Navigation
 ///
 /// ShellRoute wrapper chứa bottom navigation bar cho 4 tabs chính.
 /// Tab "Create Post" mở fullscreen → không nằm trong shell.
-class MainScaffold extends StatelessWidget {
+class MainScaffold extends ConsumerWidget {
   const MainScaffold({super.key, required this.child});
 
   final Widget child;
@@ -21,8 +23,11 @@ class MainScaffold extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = _currentIndex(context);
+
+    // Tổng unread count từ tất cả conversations (đã có sẵn provider)
+    final totalUnread = ref.watch(totalUnreadCountProvider);
 
     return Scaffold(
       body: child,
@@ -82,7 +87,7 @@ class MainScaffold extends StatelessWidget {
                   label: 'Chat',
                   isSelected: currentIndex == 2,
                   onTap: () => context.go('/chat'),
-                  badgeCount: 3, // TODO: từ provider
+                  badgeCount: totalUnread > 0 ? totalUnread : null,
                 ),
                 _NavItem(
                   icon: Icons.person_rounded,

@@ -17,38 +17,6 @@ import '../widgets/user_tile.dart';
 /// - Tab: Users / Posts / Waves
 /// - Trending users / suggested
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MOCK DATA
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-final _mockUsers = [
-  _MockUser('Minh Anh', 'Just vibing ✨', 'joy', true,
-    {'joy': 0.4, 'trust': 0.25, 'anticipation': 0.15, 'surprise': 0.1, 'sadness': 0.05, 'fear': 0.02, 'anger': 0.01, 'disgust': 0.02}),
-  _MockUser('Hoàng Dũng', 'Code & coffee ☕', 'anticipation', true,
-    {'anticipation': 0.35, 'joy': 0.3, 'trust': 0.15, 'surprise': 0.1, 'sadness': 0.03, 'fear': 0.02, 'anger': 0.03, 'disgust': 0.02}),
-  _MockUser('Thu Hà', 'Dreamer 📚', 'trust', false,
-    {'trust': 0.3, 'joy': 0.25, 'sadness': 0.15, 'anticipation': 0.1, 'surprise': 0.08, 'fear': 0.05, 'anger': 0.04, 'disgust': 0.03}),
-  _MockUser('Khánh Linh', 'Sunset chaser 🌅', 'surprise', true,
-    {'surprise': 0.3, 'joy': 0.25, 'anticipation': 0.2, 'trust': 0.1, 'sadness': 0.05, 'fear': 0.04, 'anger': 0.03, 'disgust': 0.03}),
-  _MockUser('Tuấn Kiệt', 'Runner 🏃', 'anticipation', false,
-    {'anticipation': 0.3, 'joy': 0.28, 'trust': 0.18, 'surprise': 0.08, 'sadness': 0.06, 'fear': 0.04, 'anger': 0.03, 'disgust': 0.03}),
-  _MockUser('Lan Phương', 'Music lover 🎵', 'joy', true,
-    {'joy': 0.35, 'trust': 0.2, 'anticipation': 0.15, 'surprise': 0.1, 'sadness': 0.08, 'fear': 0.05, 'anger': 0.04, 'disgust': 0.03}),
-  _MockUser('Đức Minh', 'Sci-fi nerd 🌌', 'surprise', false,
-    {'surprise': 0.25, 'joy': 0.25, 'anticipation': 0.2, 'trust': 0.15, 'sadness': 0.05, 'fear': 0.04, 'anger': 0.03, 'disgust': 0.03}),
-  _MockUser('Hương Giang', 'Yoga & mindfulness 🧘', 'trust', false,
-    {'trust': 0.35, 'joy': 0.2, 'sadness': 0.15, 'anticipation': 0.1, 'surprise': 0.08, 'fear': 0.05, 'anger': 0.04, 'disgust': 0.03}),
-];
-
-class _MockUser {
-  final String name;
-  final String bio;
-  final String dominantEmotion;
-  final bool isOnline;
-  final Map<String, double> emotionVector;
-  _MockUser(this.name, this.bio, this.dominantEmotion, this.isOnline, this.emotionVector);
-}
-
 /// Search Provider
 final searchQueryProvider = StateProvider<String>((ref) => '');
 

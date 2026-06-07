@@ -236,6 +236,96 @@ class ChatService {
     await resetUnreadCount(conversationId, userId);
   }
 
+  /// Xóa 1 tin nhắn khỏi RTDB.
+  /// Chỉ cho phép xóa tin nhắn của chính mình.
+  Future<void> deleteMessage({
+    required String conversationId,
+    required String messageId,
+  }) async {
+    await _database.ref('messages/$conversationId/$messageId').remove();
+  }
+
+  /// Thêm/bỏ reaction lên tin nhắn.
+  /// Nếu user đã react cùng emotion → bỏ reaction.
+  /// Nếu user react emotion khác → đổi reaction.
+  Future<void> toggleReaction({
+    required String conversationId,
+    required String messageId,
+    required String emotion,
+  }) async {
+    final ref = _database
+        .ref('messages/$conversationId/$messageId/reactions/$_uid');
+
+    final snapshot = await ref.get();
+    if (snapshot.exists && snapshot.value == emotion) {
+      // Đã react cùng emotion → bỏ
+      await ref.remove();
+    } else {
+      // React mới hoặc đổi emotion
+      await ref.set(emotion);
+    }
+  }
+
+  /// Gửi tin nhắn ảnh (image message).
+  Future<void> sendImageMessage({
+    required String conversationId,
+    required String mediaUrl,
+    String caption = '',
+    required List<String> participants,
+    ReplyInfo? replyTo,
+  }) async {
+    final message = MessageModel(
+      id: '',
+      senderId: _uid,
+      content: caption,
+      type: MessageType.image,
+      timestamp: DateTime.now(),
+      readBy: {_uid: true},
+      mediaUrl: mediaUrl,
+      replyTo: replyTo,
+    );
+
+    final ref = _database.ref('messages/$conversationId').push();
+    await ref.set(message.toJson());
+
+    await updateConversationOnNewMessage(
+      conversationId: conversationId,
+      senderId: _uid,
+      content: caption.isNotEmpty ? '📷 $caption' : '📷 Ảnh',
+      messageType: MessageType.image.value,
+      participants: participants,
+    );
+  }
+
+  /// Gửi tin nhắn kèm reply (trích dẫn).
+  Future<void> sendMessageWithReply({
+    required String conversationId,
+    required String content,
+    required ReplyInfo replyTo,
+    required List<String> participants,
+  }) async {
+    final message = MessageModel(
+      id: '',
+      senderId: _uid,
+      content: content,
+      type: MessageType.text,
+      timestamp: DateTime.now(),
+      readBy: {_uid: true},
+      replyTo: replyTo,
+    );
+
+    final ref = _database.ref('messages/$conversationId').push();
+    await ref.set(message.toJson());
+
+    await updateConversationOnNewMessage(
+      conversationId: conversationId,
+      senderId: _uid,
+      content: content,
+      messageType: MessageType.text.value,
+      participants: participants,
+    );
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // TYPING (RTDB)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -11,7 +11,6 @@ import '../../../shared/widgets/loading_widget.dart';
 import '../../../shared/widgets/error_widget.dart';
 import '../../../providers/user_profile_provider.dart';
 import '../../../providers/emotion_profile_provider.dart';
-import '../../../core/constants/emotion_types.dart';
 import '../../feed/models/post_model.dart';
 
 /// AURA Social – Profile Screen (Connected to Firestore)

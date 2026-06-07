@@ -57,13 +57,17 @@ class SoulUser {
   });
 
   factory SoulUser.fromMap(Map<String, dynamic> map) {
+    final rawEmotionVector = map['emotion_vector'];
+    final emotionVector = rawEmotionVector is Map
+        ? Map<String, dynamic>.from(rawEmotionVector)
+        : null;
     return SoulUser(
       uid: map['uid'] as String? ?? '',
       displayName: map['display_name'] as String? ?? '',
       avatarUrl: map['avatar_url'] as String?,
       bio: map['bio'] as String?,
       auraDominantEmotion: map['aura_dominant_emotion'] as String?,
-      emotionVector: (map['emotion_vector'] as Map<String, dynamic>?)?.map(
+      emotionVector: emotionVector?.map(
         (key, value) => MapEntry(key, (value as num).toDouble()),
       ),
     );
@@ -87,15 +91,17 @@ class SoulSuggestion {
   });
 
   factory SoulSuggestion.fromMap(Map<String, dynamic> map) {
+    final rawBreakdown = map['breakdown'];
+    final rawOtherUser = map['other_user'];
     return SoulSuggestion(
       connectionId: map['connection_id'] as String? ?? '',
       soulScore: (map['soul_score'] as num?)?.toDouble() ?? 0.0,
       connectionType: map['connection_type'] as String? ?? 'Unknown',
       breakdown: CompatibilityBreakdown.fromMap(
-        map['breakdown'] as Map<String, dynamic>? ?? {},
+        rawBreakdown is Map ? Map<String, dynamic>.from(rawBreakdown) : {},
       ),
       otherUser: SoulUser.fromMap(
-        map['other_user'] as Map<String, dynamic>? ?? {},
+        rawOtherUser is Map ? Map<String, dynamic>.from(rawOtherUser) : {},
       ),
     );
   }

@@ -1,6 +1,6 @@
 # 📊 AURA Social – Báo Cáo Tiến Độ Dự Án
 
-> **Cập nhật lần cuối:** 18/05/2026  
+> **Cập nhật lần cuối:** 07/06/2026  
 > **Trạng thái tổng quan:** 🟢 Frontend sẵn sàng test · 🟡 Backend AI đang phát triển
 
 ---
@@ -12,6 +12,7 @@
 | 13/04/2026 | Khởi tạo dự án, thiết kế hệ thống, phân công công việc |
 | 18/04/2026 | Deploy Firebase + FastAPI backend skeleton, team bắt đầu code |
 | 18/05/2026 | **Merge tất cả nhánh vào `main`**, sửa lỗi biên dịch, tích hợp Google Sign-In |
+| 07/06/2026 | Sửa lỗi xóa chat và thêm chức năng sửa/xóa bài viết |
 
 ---
 
@@ -28,12 +29,12 @@
 | **Feed** | Following Tab | Leader | ✅ |
 | **Feed** | Post Card widget | Leader | ✅ Aura Ring + Reactions |
 | **Feed** | Shimmer Loading | Person 4 | ✅ |
-| **Post** | Create Post Screen | Person 2 | ✅ Text + Image picker |
-| **Post** | Post Detail + Comments | Person 2 | ✅ |
+| **Post** | Create Post Screen | Person 2 | ✅ Đăng bài + Chỉnh sửa bài viết |
+| **Post** | Post Detail + Comments | Person 2 | ✅ Chi tiết post + Xóa/Sửa post |
 | **Profile** | My Profile Screen | Person 2 | ✅ Emotional Compass card |
 | **Profile** | User Profile (khác) | Person 2 | ✅ Follow/Unfollow |
 | **Profile** | Edit Profile Screen | Person 2 | ✅ |
-| **Chat** | Conversations List | Person 3 | ✅ |
+| **Chat** | Conversations List | Person 3 | ✅ Danh sách + Vuốt để xóa |
 | **Chat** | Chat Screen (RTDB) | Person 3 | ✅ Real-time messages |
 | **Soul Connect** | Soul Connect Screen | Person 3 | ✅ Swipe card UI |
 | **Soul Connect** | Swipe Card widget | Person 3 | ✅ |

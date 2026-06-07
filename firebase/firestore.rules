@@ -150,7 +150,8 @@ service cloud.firestore {
       allow update: if isAuthenticated()
                     && request.auth.uid in resource.data.participants;
 
-      allow delete: if false;
+      allow delete: if isAuthenticated()
+                    && request.auth.uid in resource.data.participants;
     }
 
     // ════════════════════════════════════════════

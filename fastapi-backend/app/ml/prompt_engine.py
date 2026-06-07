@@ -230,5 +230,52 @@ class PromptEngine:
 
         return suggestions[:3]
 
+    def personalize_notification(
+        self,
+        sender_name: str,
+        message_body: str,
+        recipient_mood: str
+    ) -> Dict[str, str]:
+        """
+        Generate personalized push notification title and body using Gemini.
+        """
+        model = self._get_gemini_model()
+        if model:
+            prompt = f"""
+            Bạn là một trợ lý AI đồng cảm của mạng xã hội AURA.
+            Hãy viết lại nội dung thông báo đẩy (push notification) cho tin nhắn chat mới nhận được để làm nó trở nên ấm áp, thấu cảm và cá nhân hóa hơn.
+            
+            Thông tin:
+            - Tên người gửi tin nhắn: "{sender_name}"
+            - Nội dung tin nhắn của họ: "{message_body}"
+            - Tâm trạng hiện tại của người nhận: {recipient_mood}
+            
+            Yêu cầu:
+            - Tạo tiêu đề (title) và nội dung rút gọn (body) cho thông báo đẩy.
+            - Tiêu đề nên ngắn gọn (dưới 5 từ).
+            - Nội dung thông báo thấu cảm, xoa dịu hoặc khuyến khích (dưới 20 từ).
+            - Trả về kết quả dưới dạng JSON chính xác:
+            {{
+              "title": "tiêu đề thông báo",
+              "body": "nội dung thông báo đẩy"
+            }}
+            - Không thêm bất kỳ giải thích hay ký tự markdown nào ngoài JSON.
+            """
+            try:
+                response = model.generate_content(prompt)
+                match = re.search(r'\{.*\}', response.text, re.DOTALL)
+                if match:
+                    data = json.loads(match.group(0))
+                    if "title" in data and "body" in data:
+                        return data
+            except Exception as e:
+                print(f"⚠️ PromptEngine: Gemini notification personalization failed: {e}")
+                
+        # FALLBACK
+        return {
+            "title": f"Tin nhắn từ {sender_name}",
+            "body": message_body[:100]
+        }
+
 # Singleton instance
 prompt_engine = PromptEngine()

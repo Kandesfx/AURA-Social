@@ -6,7 +6,13 @@ from datetime import datetime, timedelta, timezone
 import random
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.auth import get_current_user
-from app.models.wellbeing import WeeklyReportResponse
+from app.models.wellbeing import (
+    WeeklyReportResponse,
+    WellbeingCheckRequest,
+    WellbeingCheckResponse,
+    WellbeingScoreResponse,
+    DailyInsightResponse,
+)
 from app.ml.analytics_engine import weekly_analytics_engine
 from app.utils.firebase_client import get_firestore
 
@@ -46,55 +52,18 @@ async def get_weekly_report(user: dict = Depends(get_current_user)):
     except Exception as e:
         print(f"⚠️ Wellbeing Router: Failed to fetch history from Firestore: {e}")
 
-    # 2. Fallback: If there are fewer than 3 historical check-ins, generate a realistic week of mock data for testing/demo
-    if len(checkins) < 3:
-        print(f"ℹ️ Under 3 check-ins found for user {uid} in Firestore. Generating realistic 7-day mock history for report.")
-        now = datetime.now(timezone.utc)
-        
-        # Primary base mood for the mock week
-        base_moods = ["joy", "sadness", "stressed", "chill", "anticipation"]
-        user_base_mood = random.choice(base_moods)
-        
-        # Generate 8-12 random entries over the past 7 days
-        for i in range(10):
-            days_ago = random.uniform(0.1, 6.9)
-            check_time = now - timedelta(days=days_ago)
-            
-            # Formulate mood vector
-            vec = [random.uniform(0.0, 0.3) for _ in range(8)]
-            
-            # Amplify dominant emotions based on user_base_mood
-            if user_base_mood == "joy":
-                vec[0] += 0.4  # Joy
-                vec[1] += 0.3  # Trust
-            elif user_base_mood == "sadness":
-                vec[4] += 0.5  # Sadness
-                vec[5] += 0.2  # Fear
-            elif user_base_mood == "stressed":
-                vec[6] += 0.4  # Anger/frustration
-                vec[4] += 0.3  # Sadness
-            elif user_base_mood == "chill":
-                vec[1] += 0.5  # Trust
-                vec[0] += 0.2  # Joy
-            else:
-                vec[2] += 0.4  # Anticipation
-                vec[3] += 0.3  # Surprise
-                
-            # Normalize vector to sum to 1.0
-            total = sum(vec)
-            vec = [v / total for v in vec]
-            
-            checkins.append({
-                'timestamp': check_time,
-                'emotion_vector': {
-                    'joy': vec[0], 'trust': vec[1], 'anticipation': vec[2], 'surprise': vec[3],
-                    'sadness': vec[4], 'fear': vec[5], 'anger': vec[6], 'disgust': vec[7]
-                },
-                'dominant_emotion': user_base_mood
-            })
-            
-        # Sort check-ins chronologically
-        checkins.sort(key=lambda x: x['timestamp'])
+    # 2. Fallback: If there are no check-ins, return the default report
+    if not checkins:
+        print(f"ℹ️ No check-ins found for user {uid} in Firestore. Returning default report.")
+        try:
+            report = weekly_analytics_engine._get_default_report(uid)
+            return WeeklyReportResponse(**report)
+        except Exception as e:
+            print(f"❌ Failed to generate default report: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Default report generation failed: {str(e)}"
+            )
 
     # 3. Generate report
     try:
@@ -105,4 +74,139 @@ async def get_weekly_report(user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Report generation failed: {str(e)}"
+        )
+
+
+@router.post("/check", response_model=WellbeingCheckResponse)
+async def check_wellbeing(
+    request: WellbeingCheckRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Real-time wellbeing check based on session data."""
+    uid = user["uid"]
+    session_minutes = request.session_duration_minutes
+    emotion_vector = request.current_emotion_vector
+    
+    # Calculate wellbeing score from emotion vector
+    positive = sum(emotion_vector.get(e, 0) for e in ['joy', 'trust', 'anticipation'])
+    negative = sum(emotion_vector.get(e, 0) for e in ['sadness', 'fear', 'anger', 'disgust'])
+    wellbeing_score = int(max(0, min(100, 50 + (positive - negative) * 100)))
+    
+    should_break = session_minutes >= 30 or negative > 0.4
+    break_type = 'session_break' if session_minutes >= 30 else ('positive_inject' if negative > 0.4 else 'none')
+    
+    title = ""
+    subtitle = ""
+    suggestion = None
+    
+    if break_type == 'session_break':
+        title = "🌙 Nghỉ ngơi một chút nhé!"
+        subtitle = f"Bạn đã sử dụng AURA được {session_minutes} phút. Hãy dành chút thời gian để thư giãn."
+        suggestion = "Thử nhìn ra cửa sổ hoặc uống một ly nước 💧"
+    elif break_type == 'positive_inject':
+        title = "✨ Góc tươi sáng"
+        subtitle = "AURA nhận thấy bạn có thể cần một chút năng lượng tích cực."
+        suggestion = "Hãy xem Emotional Compass để hiểu rõ hơn cảm xúc của bạn 🧭"
+        
+    return WellbeingCheckResponse(
+        should_break=should_break,
+        break_type=break_type,
+        title=title,
+        subtitle=subtitle,
+        wellbeing_score=wellbeing_score,
+        suggestion=suggestion
+    )
+
+
+@router.get("/score", response_model=WellbeingScoreResponse)
+async def get_wellbeing_score(user: dict = Depends(get_current_user)):
+    """Get overall wellbeing score based on user's recent emotion history."""
+    uid = user["uid"]
+    db = get_firestore()
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    
+    try:
+        history_ref = db.collection('users').document(uid).collection('emotion_history')
+        query = history_ref.where('timestamp', '>=', seven_days_ago).stream()
+        
+        checkins = []
+        for doc in query:
+            data = doc.to_dict()
+            if data.get('emotion_vector'):
+                checkins.append(data.get('emotion_vector'))
+                
+        if not checkins:
+            # Fallback from user profile dominant emotion
+            user_doc = db.collection('users').document(uid).get()
+            if user_doc.exists:
+                user_data = user_doc.to_dict()
+                dom = user_data.get('auraDominantEmotion', 'explore')
+                if dom in ['joy', 'trust', 'anticipation']:
+                    return WellbeingScoreResponse(score=85)
+                elif dom in ['sadness', 'fear', 'anger', 'disgust']:
+                    return WellbeingScoreResponse(score=55)
+            return WellbeingScoreResponse(score=75)
+            
+        total_pos = 0.0
+        total_neg = 0.0
+        for vec in checkins:
+            pos = sum(vec.get(e, 0) for e in ['joy', 'trust', 'anticipation'])
+            neg = sum(vec.get(e, 0) for e in ['sadness', 'fear', 'anger', 'disgust'])
+            total_pos += pos
+            total_neg += neg
+            
+        avg_pos = total_pos / len(checkins)
+        avg_neg = total_neg / len(checkins)
+        score = int(max(0, min(100, 50 + (avg_pos - avg_neg) * 100)))
+        return WellbeingScoreResponse(score=score)
+    except Exception as e:
+        print(f"⚠️ Failed to calculate real wellbeing score: {e}")
+        return WellbeingScoreResponse(score=70)
+
+
+@router.get("/daily-insight", response_model=DailyInsightResponse)
+async def get_daily_insight(user: dict = Depends(get_current_user)):
+    """Get daily emotional insight generated by Gemini or rules."""
+    uid = user["uid"]
+    db = get_firestore()
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    try:
+        history_ref = db.collection('users').document(uid).collection('emotion_history')
+        query = history_ref.where('timestamp', '>=', today_start).stream()
+        
+        checkins = []
+        for doc in query:
+            data = doc.to_dict()
+            ts = data.get('timestamp')
+            if isinstance(ts, datetime) and ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            checkins.append({
+                'timestamp': ts,
+                'emotion_vector': data.get('emotion_vector'),
+                'dominant_emotion': data.get('dominant_emotion')
+            })
+            
+        # Get dominant emotion
+        dominant_emotion = "explore"
+        user_doc = db.collection('users').document(uid).get()
+        if user_doc.exists:
+            user_data = user_doc.to_dict()
+            dominant_emotion = user_data.get('auraDominantEmotion', 'explore')
+            
+        if checkins:
+            # Or get it from the last checkin today
+            dominant_emotion = checkins[-1].get('dominant_emotion') or dominant_emotion
+            
+        insight = weekly_analytics_engine.generate_daily_insight(
+            user_id=uid,
+            checkins=checkins,
+            dominant_emotion=dominant_emotion
+        )
+        return DailyInsightResponse(**insight)
+    except Exception as e:
+        print(f"❌ Failed to generate daily insight: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Daily insight generation failed: {str(e)}"
         )

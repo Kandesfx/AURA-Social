@@ -29,6 +29,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   File? _pickedImage;
   String? _existingImageUrl;
   bool _isPosting = false;
+  bool _isAssisting = false;
 
   @override
   void initState() {
@@ -141,6 +142,164 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
+  Future<void> _runAiAssist() async {
+    final text = _contentCtrl.text.trim();
+    final mood = _selectedMood ?? 'joy';
+
+    setState(() => _isAssisting = true);
+
+    try {
+      final response = await ref.read(apiServiceProvider).post('/api/v1/content/assist', data: {
+        'text': text,
+        'mood_theme': mood,
+      });
+
+      final data = response.data;
+      final suggestions = List<String>.from(data['suggestions'] ?? []);
+      final emotions = Map<String, dynamic>.from(data['predicted_emotion_vector'] ?? {}).map(
+        (k, v) => MapEntry(k, (v as num).toDouble()),
+      );
+
+      if (mounted) {
+        _showAssistSuggestionsSheet(suggestions, emotions);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Lỗi trợ lý AI: $e'),
+          backgroundColor: AuraColors.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isAssisting = false);
+    }
+  }
+
+  void _showAssistSuggestionsSheet(List<String> suggestions, Map<String, double> emotions) {
+    final topEmotions = emotions.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final dominant = topEmotions.isNotEmpty ? topEmotions.first.key : 'joy';
+    final confidence = topEmotions.isNotEmpty ? topEmotions.first.value : 0.0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        builder: (_, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: AuraColors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AuraColors.surfaceBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '✨ Trợ Lý Sáng Tạo AURA',
+                style: AuraTypography.titleMedium.copyWith(
+                  color: AuraColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Emotion Preview Banner
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AuraColors.getEmotionColor(dominant).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AuraColors.getEmotionColor(dominant).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.psychology_outlined, size: 24, color: AuraColors.getEmotionColor(dominant)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dự đoán cảm xúc bài viết',
+                            style: AuraTypography.labelMedium.copyWith(
+                              color: AuraColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Cảm xúc chủ đạo dự kiến: ${dominant.toUpperCase()} (${(confidence * 100).round()}%). Vui lòng chọn gợi ý bên dưới để thay đổi.',
+                            style: AuraTypography.bodySmall.copyWith(
+                              color: AuraColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  children: [
+                    Text(
+                      'Gợi ý viết bài từ AI:',
+                      style: AuraTypography.labelMedium.copyWith(color: AuraColors.textTertiary),
+                    ),
+                    const SizedBox(height: 10),
+                    ...suggestions.map((s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: InkWell(
+                        onTap: () {
+                          _contentCtrl.text = s;
+                          Navigator.pop(context);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AuraColors.surfaceVariant,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AuraColors.surfaceBorder,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            s,
+                            style: AuraTypography.bodyMedium.copyWith(
+                              color: AuraColors.textPrimary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasContent = _contentCtrl.text.trim().isNotEmpty;
@@ -246,6 +405,12 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               _ToolBtn(icon: Icons.image_outlined, label: 'Thư viện', onTap: _isPosting ? null : _pickImage),
               const SizedBox(width: 12),
               _ToolBtn(icon: Icons.camera_alt_outlined, label: 'Chụp ảnh', onTap: _isPosting ? null : _takePhoto),
+              const SizedBox(width: 12),
+              _ToolBtn(
+                icon: Icons.auto_awesome_outlined,
+                label: _isAssisting ? 'Đang phân tích...' : 'Gợi ý AI',
+                onTap: (_isPosting || _isAssisting) ? null : _runAiAssist,
+              ),
             ]),
           ]),
         ),

@@ -81,9 +81,11 @@ from app.routers import soul
 app.include_router(soul.router, prefix="/api/v1/soul", tags=["Soul Connect"])
 
 # Include Wellbeing and Prompts Routers (Phase 5)
-from app.routers import wellbeing, prompts
+from app.routers import wellbeing, prompts, challenges
 app.include_router(wellbeing.router, prefix="/api/v1/wellbeing", tags=["Wellbeing"])
 app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["Prompts"])
+app.include_router(challenges.router, prefix="/api/v1/challenges", tags=["Challenges"])
+
 
 
 # ── Health Check ──

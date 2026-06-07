@@ -19,3 +19,28 @@ class WeeklyReportResponse(BaseModel):
     trends: Dict[str, Any]
     personalized_letter: str
     self_care_plan: Dict[str, Any]
+
+
+class WellbeingCheckRequest(BaseModel):
+    session_duration_minutes: int
+    current_emotion_vector: Dict[str, float]
+
+
+class WellbeingCheckResponse(BaseModel):
+    should_break: bool
+    break_type: str
+    title: str
+    subtitle: str
+    wellbeing_score: int
+    suggestion: Optional[str] = None
+
+
+class WellbeingScoreResponse(BaseModel):
+    score: int
+
+
+class DailyInsightResponse(BaseModel):
+    summary: str
+    positive_pattern: str
+    suggestion: str
+    wellbeing_score: int

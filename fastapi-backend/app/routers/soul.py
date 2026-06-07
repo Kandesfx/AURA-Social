@@ -2,6 +2,7 @@
 AURA Social – Soul Connect Router
 Endpoints for calculating user compatibility and getting matched soul suggestions.
 """
+from datetime import datetime, timezone
 import random
 from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -115,8 +116,34 @@ async def get_soul_suggestions(
                 emo_vector = other['current_emotion_vector']
                 dominant = other.get('author_dominant_emotion', 'explore')
                 
-                # Check for existing connection ID or generate one
-                connection_id = f"soul-conn-{uid[:4]}-{other['uid'][:4]}"
+                # Check for existing connection ID or generate one (order-independent)
+                first_id, second_id = (uid, other['uid']) if uid < other['uid'] else (other['uid'], uid)
+                connection_id = f"soul-conn-{first_id}-{second_id}"
+
+                # Save to Firestore if not exists, so user can respond to it
+                try:
+                    conn_ref = db.collection('soul_connections').document(connection_id)
+                    conn_doc = conn_ref.get()
+                    if not conn_doc.exists:
+                        conn_ref.set({
+                            'user_a_id': uid,
+                            'user_b_id': other['uid'],
+                            'participants': [uid, other['uid']],
+                            'soul_score': res['soul_score'],
+                            'connection_type': res['connection_type'],
+                            'compatibility_breakdown': {
+                                'emotional_pattern': res['breakdown']['emotional_pattern'],
+                                'content_taste': res['breakdown']['content_taste'],
+                                'complementary': res['breakdown']['complementary'],
+                                'interests': res['breakdown']['interests'],
+                                'activity': res['breakdown']['activity']
+                            },
+                            'status': 'suggested',
+                            'created_at': datetime.now(timezone.utc),
+                            'updated_at': datetime.now(timezone.utc)
+                        })
+                except Exception as e:
+                    print(f"⚠️ Failed to write soul connection {connection_id} to Firestore: {e}")
 
                 suggestion = SoulSuggestion(
                     connectionId=connection_id,

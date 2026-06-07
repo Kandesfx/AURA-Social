@@ -9,21 +9,23 @@ import '../../../services/feed_service.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 import '../models/post_model.dart';
 import '../widgets/post_card.dart';
+import '../../../providers/user_profile_provider.dart';
 
 /// AURA Social – Feed Screen
 ///
 /// Màn hình chính với 2 tab: For You (AI-curated) và Following (chronological).
 /// Enhanced by Person 4, Task #19: pull-to-refresh, infinite scroll, shimmer loading.
-class FeedScreen extends StatefulWidget {
+class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
 
   @override
-  State<FeedScreen> createState() => _FeedScreenState();
+  ConsumerState<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen>
+class _FeedScreenState extends ConsumerState<FeedScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _crisisSheetShown = false;
 
   @override
   void initState() {
@@ -37,8 +39,130 @@ class _FeedScreenState extends State<FeedScreen>
     super.dispose();
   }
 
+  void _showCrisisSupportSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: AuraColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Pull bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AuraColors.surfaceBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Icon
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AuraColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.favorite_rounded,
+                  color: AuraColors.primary,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Title
+              Text(
+                'AURA luôn bên cạnh bạn 🌿',
+                style: AuraTypography.titleMedium.copyWith(
+                  color: AuraColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Subtitle
+              Text(
+                'Chúng mình nhận thấy bạn có thể đang trải qua giai đoạn khó khăn. Bạn không cần phải đối mặt với điều này một mình. Hãy kết nối với những người sẵn sàng giúp đỡ nhé.',
+                textAlign: TextAlign.center,
+                style: AuraTypography.bodyMedium.copyWith(
+                  color: AuraColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Call Helpline Button
+              FilledButton.icon(
+                onPressed: () {
+                  // In real app, launch tel URL
+                  debugPrint('Calling helpline...');
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AuraColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.phone_rounded),
+                label: const Text('Gọi Đường Dây Nóng (1800 599 920)'),
+              ),
+              const SizedBox(height: 12),
+              
+              // Talk with peer match button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.push('/soul-connect');
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AuraColors.primary,
+                  side: BorderSide(color: AuraColors.primary),
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                label: const Text('Trò chuyện chia sẻ trên Soul Connect'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Watch current user profile for crisis watch detection
+    ref.watch(currentUserProfileProvider).whenData((user) {
+      if (user != null && user.crisisWatch && !_crisisSheetShown) {
+        _crisisSheetShown = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showCrisisSupportSheet(context);
+        });
+      }
+    });
+
     return Scaffold(
       body: NestedScrollView(
         headerSliverBuilder: (context, innerScrolled) => [

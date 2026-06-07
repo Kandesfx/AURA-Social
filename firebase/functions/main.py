@@ -188,12 +188,34 @@ def on_conversation_updated(event: firestore_fn.Event[firestore_fn.Change[firest
         sender_doc = get_db().collection("users").document(sender_id).get()
         sender_name = sender_doc.to_dict().get("displayName", "Someone") if sender_doc.exists else "Someone"
 
-        # Gửi push notification
+        # Gửi push notification với AI personalization
+        push_title = sender_name
+        push_body = last_message[:100]
+        recipient_mood = user_data.get("auraDominantEmotion", "explore")
+
+        try:
+            res = requests.post(
+                f"{FASTAPI_URL}/api/v1/prompts/personalize-notification",
+                json={
+                    "sender_name": sender_name,
+                    "message_body": last_message,
+                    "recipient_mood": recipient_mood,
+                },
+                headers={"X-Internal-Key": INTERNAL_API_KEY},
+                timeout=10,
+            )
+            if res.status_code == 200:
+                res_data = res.json()
+                push_title = res_data.get("title", push_title)
+                push_body = res_data.get("body", push_body)
+        except Exception as api_err:
+            print(f"⚠️ Failed to call personalize-notification API: {api_err}")
+
         try:
             message = messaging.Message(
                 notification=messaging.Notification(
-                    title=sender_name,
-                    body=last_message[:100],
+                    title=push_title,
+                    body=push_body,
                 ),
                 token=fcm_token,
                 data={
@@ -203,7 +225,7 @@ def on_conversation_updated(event: firestore_fn.Event[firestore_fn.Change[firest
                 },
             )
             messaging.send(message)
-            print(f"✅ Push sent to {member_id}")
+            print(f"✅ Push sent to {member_id} (title: {push_title}, body: {push_body})")
         except Exception as e:
             print(f"❌ Failed to send push to {member_id}: {e}")
 
@@ -240,3 +262,39 @@ def on_follow(event: firestore_fn.Event[firestore_fn.DocumentSnapshot]):
     })
 
     print(f"✅ {follower_id} followed {user_id}")
+
+
+# ════════════════════════════════════════════════════
+# 5. AUTO EMOTION CHECK-IN SCHEDULER
+# Trigger: scheduler → every 1 hour
+# Action: Trigger FastAPI /emotion/auto-checkin for all active users
+# ════════════════════════════════════════════════════
+@scheduler_fn.on_schedule(schedule="every 1 hours")
+def auto_checkin_scheduler(event: scheduler_fn.ScheduledEvent):
+    """
+    Runs every hour, calls FastAPI backend to perform emotional check-ins
+    for all active users.
+    """
+    db = get_db()
+    
+    try:
+        users = db.collection("users").stream()
+        for doc in users:
+            uid = doc.id
+            # Call FastAPI /emotion/auto-checkin for this user
+            try:
+                response = requests.post(
+                    f"{FASTAPI_URL}/api/v1/emotion/auto-checkin",
+                    params={"user_id": uid},
+                    headers={"X-Internal-Key": INTERNAL_API_KEY},
+                    timeout=15,
+                )
+                if response.status_code == 200:
+                    print(f"✅ Auto check-in trigger succeeded for user {uid}")
+                else:
+                    print(f"⚠️ Auto check-in trigger failed for user {uid}: {response.status_code} - {response.text}")
+            except Exception as e:
+                print(f"❌ HTTP request failed for auto check-in of user {uid}: {e}")
+                
+    except Exception as e:
+        print(f"❌ Auto check-in scheduler failed to stream users: {e}")

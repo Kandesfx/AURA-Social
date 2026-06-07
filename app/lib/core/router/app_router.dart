@@ -20,6 +20,7 @@ import '../../features/settings/screens/settings_screen.dart';
 import '../../features/settings/screens/ai_settings_screen.dart';
 import '../../features/settings/screens/privacy_settings_screen.dart';
 import '../../features/compass/screens/emotional_compass_screen.dart';
+import '../../features/wellbeing/screens/challenges_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
 import '../../features/profile/screens/follow_list_screen.dart';
@@ -147,6 +148,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/compass',
         builder: (context, state) => const EmotionalCompassScreen(),
+      ),
+      GoRoute(
+        path: '/challenges',
+        builder: (context, state) => const ChallengesScreen(),
       ),
       GoRoute(
         path: '/post/:postId',

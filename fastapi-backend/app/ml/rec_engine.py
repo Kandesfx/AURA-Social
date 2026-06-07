@@ -45,8 +45,8 @@ class DeepRecommendationPipeline:
             print(f"⚠️ Error fetching posts from Firestore: {e}")
 
         # Fallback to high-quality mock posts if Firestore is empty/unavailable
-        if len(candidates) < 5:
-            print("ℹ️ Firestore has fewer posts than expected. Injecting high-quality mock candidates.")
+        if len(candidates) < 1:
+            print("ℹ️ Firestore is completely empty. Injecting high-quality mock candidates.")
             candidates.extend(self._get_mock_posts())
 
         # Deduplicate candidates by post_id
@@ -319,7 +319,8 @@ class DeepRecommendationPipeline:
                 'created_at': datetime.now(timezone.utc),
                 'author_name': 'Minh Anh',
                 'author_username': 'minhanh',
-                'author_dominant_emotion': 'joy'
+                'author_dominant_emotion': 'joy',
+                'is_demo_data': True
             },
             {
                 'id': 'mock_2',
@@ -335,7 +336,8 @@ class DeepRecommendationPipeline:
                 'created_at': datetime.now(timezone.utc),
                 'author_name': 'Hoàng Dũng',
                 'author_username': 'hoangdung',
-                'author_dominant_emotion': 'joy'
+                'author_dominant_emotion': 'joy',
+                'is_demo_data': True
             },
             {
                 'id': 'mock_3',
@@ -351,7 +353,8 @@ class DeepRecommendationPipeline:
                 'created_at': datetime.now(timezone.utc),
                 'author_name': 'Thu Hà',
                 'author_username': 'thuha_dreamer',
-                'author_dominant_emotion': 'trust'
+                'author_dominant_emotion': 'trust',
+                'is_demo_data': True
             },
             {
                 'id': 'mock_4',
@@ -367,7 +370,8 @@ class DeepRecommendationPipeline:
                 'created_at': datetime.now(timezone.utc),
                 'author_name': 'Khánh Linh',
                 'author_username': 'khanhlinh',
-                'author_dominant_emotion': 'anticipation'
+                'author_dominant_emotion': 'anticipation',
+                'is_demo_data': True
             }
         ]
 

@@ -306,5 +306,93 @@ class WeeklyAnalyticsEngine:
             }
         }
 
+    def generate_daily_insight(
+        self,
+        user_id: str,
+        checkins: List[Dict[str, Any]],
+        dominant_emotion: str = "trust"
+    ) -> Dict[str, Any]:
+        """Generate a personalized daily emotional insight and wellness tips."""
+        # Calculate daily wellbeing score first
+        if checkins:
+            total_pos = 0.0
+            total_neg = 0.0
+            for c in checkins:
+                vec = c.get('emotion_vector', {})
+                pos = sum(vec.get(e, 0) for e in ['joy', 'trust', 'anticipation'])
+                neg = sum(vec.get(e, 0) for e in ['sadness', 'fear', 'anger', 'disgust'])
+                total_pos += pos
+                total_neg += neg
+            avg_pos = total_pos / len(checkins)
+            avg_neg = total_neg / len(checkins)
+            wellbeing_score = int(max(0, min(100, 50 + (avg_pos - avg_neg) * 100)))
+        else:
+            if dominant_emotion in ['joy', 'trust', 'anticipation']:
+                wellbeing_score = 85
+            elif dominant_emotion in ['sadness', 'fear', 'anger', 'disgust']:
+                wellbeing_score = 55
+            else:
+                wellbeing_score = 72
+                
+        model = self._get_gemini_model()
+        if model:
+            prompt = f"""
+            Bạn là chuyên gia tâm lý học mạng xã hội AURA.
+            Hãy đưa ra lời khuyên tâm lý cá nhân hóa hàng ngày (Tiếng Việt, ngắn gọn, ấm áp) gửi cho người dùng có ID là {user_id}.
+            
+            Thông tin ngày hôm nay:
+            - Cảm xúc chủ đạo: {dominant_emotion}
+            - Số lượng check-in hôm nay: {len(checkins)}
+            - Điểm sức khỏe tinh thần hiện tại: {wellbeing_score}/100
+            
+            Hãy phân tích và trả về định dạng JSON chính xác sau:
+            {{
+              "summary": "Tóm tắt ngắn gọn cảm xúc ngày hôm nay (1 câu)",
+              "positive_pattern": "Điểm tích cực / bài học nhận ra hôm nay (1 câu)",
+              "suggestion": "Hành động tự chăm sóc bản thân cụ thể tối nay hoặc ngày mai (1 câu)"
+            }}
+            
+            Không viết thêm bất kỳ văn bản giới thiệu hay ký tự markdown nào ngoài JSON.
+            """
+            try:
+                response = model.generate_content(prompt)
+                match = re.search(r'\{.*\}', response.text, re.DOTALL)
+                if match:
+                    data = json.loads(match.group(0))
+                    if all(k in data for k in ["summary", "positive_pattern", "suggestion"]):
+                        data["wellbeing_score"] = wellbeing_score
+                        return data
+            except Exception as e:
+                print(f"⚠️ AnalyticsEngine: Failed to generate daily insight with Gemini: {e}")
+                
+        # Local rule-based fallback
+        if dominant_emotion == "joy":
+            summary = "Hôm nay là một ngày ngập tràn năng lượng tích cực và niềm vui đối với bạn."
+            positive_pattern = "Bạn đang lan tỏa những rung động hạnh phúc đến những kết nối xung quanh."
+            suggestion = "Hãy viết lại điều khiến bạn vui hôm nay để lưu giữ khoảnh khắc này nhé."
+        elif dominant_emotion == "sadness":
+            summary = "AURA nhận thấy hôm nay có chút mây mù bao phủ tâm hồn bạn."
+            positive_pattern = "Cho phép bản thân buồn cũng là một bước tự chữa lành lành mạnh."
+            suggestion = "Dành 15 phút ngâm chân ấm hoặc uống một tách trà ấm trước khi ngủ nhé."
+        elif dominant_emotion == "anger":
+            summary = "Một chút bực dọc hoặc căng thẳng đã xuất hiện trong ngày hôm nay."
+            positive_pattern = "Bạn đang nhận thức rất tốt cảm xúc của mình mà không kìm nén nó."
+            suggestion = "Thực hiện bài tập hít thở sâu 4-7-8 trong vòng 3 phút để hạ nhiệt cơn giận."
+        elif dominant_emotion == "fear":
+            summary = "Có sự bất an hoặc lo lắng đang len lỏi trong suy nghĩ của bạn."
+            positive_pattern = "Nhận diện nỗi sợ giúp bạn tìm ra sự can đảm bên trong."
+            suggestion = "Viết những điều bạn lo lắng ra giấy rồi gấp lại, tạm gác chúng sang một bên."
+        else:
+            summary = "Tâm trạng hôm nay của bạn tương đối cân bằng và nhẹ nhàng."
+            positive_pattern = "Sự bình yên trong ngày thường là nền tảng tốt cho sức khỏe tinh thần."
+            suggestion = "Hãy tiếp tục duy trì nhịp sống thoải mái này và đi ngủ đúng giờ nhé."
+            
+        return {
+            "summary": summary,
+            "positive_pattern": positive_pattern,
+            "suggestion": suggestion,
+            "wellbeing_score": wellbeing_score
+        }
+
 # Singleton instance
 weekly_analytics_engine = WeeklyAnalyticsEngine()

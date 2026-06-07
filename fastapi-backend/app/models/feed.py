@@ -17,6 +17,7 @@ class FeedItem(BaseModel):
     post_id: str
     score: float  # Relevance score
     reason: Optional[str] = None  # Why this post was recommended
+    post_data: dict = {}
 
 
 class FeedResponse(BaseModel):

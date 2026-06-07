@@ -13,6 +13,7 @@ import '../../features/post/screens/create_post_screen.dart';
 import '../../features/post/screens/post_detail_screen.dart';
 import '../../features/chat/screens/conversations_list_screen.dart';
 import '../../features/chat/screens/chat_screen.dart';
+import '../../features/chat/screens/call_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
@@ -178,6 +179,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final conversationId = state.pathParameters['conversationId']!;
           return ChatScreen(conversationId: conversationId);
+        },
+      ),
+      GoRoute(
+        path: '/call/:callId',
+        builder: (context, state) {
+          final callId = state.pathParameters['callId']!;
+          final isIncoming = state.uri.queryParameters['incoming'] == 'true';
+          return CallScreen(callId: callId, isIncoming: isIncoming);
         },
       ),
 

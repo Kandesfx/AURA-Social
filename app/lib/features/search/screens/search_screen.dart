@@ -18,7 +18,7 @@ import '../widgets/user_tile.dart';
 /// - Trending users / suggested
 
 /// Search Provider
-final searchQueryProvider = StateProvider<String>((ref) => '');
+final searchQueryProvider = StateProvider.autoDispose<String>((ref) => '');
 
 final searchableUsersProvider = StreamProvider<List<UserModel>>((ref) {
   final currentUid = FirebaseAuth.instance.currentUser?.uid;
@@ -54,6 +54,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(searchQueryProvider.notifier).state = '';
       _focusNode.requestFocus();
     });
   }

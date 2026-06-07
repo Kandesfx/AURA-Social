@@ -26,6 +26,7 @@ import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/waves/screens/waves_list_screen.dart';
 import '../../features/waves/screens/wave_chat_screen.dart';
 import '../../features/search/screens/search_screen.dart';
+import '../../features/wellbeing/screens/wellbeing_screen.dart';
 import '../../shared/widgets/main_scaffold.dart';
 
 /// Listenable wrapper cho Firebase Auth stream — để GoRouter tự refresh khi auth thay đổi
@@ -147,6 +148,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/compass',
         builder: (context, state) => const EmotionalCompassScreen(),
+      ),
+      GoRoute(
+        path: '/wellbeing',
+        builder: (context, state) => const WellbeingScreen(),
       ),
       GoRoute(
         path: '/post/:postId',

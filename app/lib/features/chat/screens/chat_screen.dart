@@ -413,6 +413,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
+  Future<void> _handleVoiceSend(Uint8List audioBytes) async {
+    final conversation = _findConversation();
+    if (conversation == null) return;
+
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    if (scaffoldMessenger == null) return;
+    
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Đang gửi tin nhắn thoại...'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(days: 1),
+      ),
+    );
+
+    try {
+      final chatService = ref.read(chatServiceProvider);
+      
+      final downloadUrl = await chatService.uploadChatMedia(
+        widget.conversationId,
+        '${DateTime.now().millisecondsSinceEpoch}_voice.webm',
+        audioBytes,
+      );
+
+      await chatService.sendAudioMessage(
+        conversationId: widget.conversationId,
+        mediaUrl: downloadUrl,
+        participants: conversation.participants,
+        replyTo: _replyingTo != null
+            ? ReplyInfo(
+                messageId: _replyingTo!.id,
+                senderId: _replyingTo!.senderId,
+                senderName: _replyingTo!.isMine(ref.read(currentUserIdProvider))
+                    ? 'Bạn'
+                    : (conversation.peerName ?? 'User'),
+                content: _replyingTo!.content,
+              )
+            : null,
+      );
+
+      if (mounted) {
+        setState(() => _replyingTo = null);
+      }
+      scaffoldMessenger.clearSnackBars();
+    } catch (e) {
+      scaffoldMessenger.clearSnackBars();
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Lỗi gửi tin nhắn thoại: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AuraColors.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _startCall(CallType type) async {
     final conversation = _findConversation();
     if (conversation == null) return;
@@ -603,6 +669,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           else
             ChatInput(
               onSend: _handleSend,
+              onSendVoice: _handleVoiceSend,
               onTypingChanged: _handleTypingChanged,
               replyingTo: _replyingTo,
               onCancelReply: () => setState(() => _replyingTo = null),

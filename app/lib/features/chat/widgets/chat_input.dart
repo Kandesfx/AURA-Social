@@ -3,6 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../models/message_model.dart';
+import '../../../core/services/web_helpers.dart';
+import 'dart:typed_data';
+import 'dart:async';
 
 /// AURA Social – Chat Input Widget
 ///
@@ -13,6 +16,7 @@ class ChatInput extends StatefulWidget {
   const ChatInput({
     super.key,
     required this.onSend,
+    this.onSendVoice,
     this.onAttach,
     this.onEmoji,
     this.enabled = true,
@@ -22,6 +26,7 @@ class ChatInput extends StatefulWidget {
   });
 
   final void Function(String message) onSend;
+  final void Function(Uint8List audioBytes)? onSendVoice;
   final VoidCallback? onAttach;
   final VoidCallback? onEmoji;
   final bool enabled;
@@ -43,12 +48,101 @@ class _ChatInputState extends State<ChatInput>
   final _focusNode = FocusNode();
   bool _hasText = false;
   bool _showEmoji = false;
+  bool _isListening = false;
+
+  bool _isRecordingAudio = false;
+  Timer? _recordingTimer;
+  int _recordingSeconds = 0;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
     _focusNode.addListener(_onFocusChanged);
+  }
+
+  void _startAudioRecording() {
+    setState(() {
+      _isRecordingAudio = true;
+      _recordingSeconds = 0;
+    });
+    startAudioRecording();
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _recordingSeconds++;
+        });
+      }
+    });
+  }
+
+  void _stopAudioRecording() {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    
+    stopAudioRecording((bytes) {
+      if (bytes.isNotEmpty && widget.onSendVoice != null) {
+        widget.onSendVoice!(bytes);
+      }
+    });
+    
+    setState(() {
+      _isRecordingAudio = false;
+      _recordingSeconds = 0;
+    });
+  }
+
+  void _cancelAudioRecording() {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    cancelAudioRecording();
+    setState(() {
+      _isRecordingAudio = false;
+      _recordingSeconds = 0;
+    });
+  }
+
+  String _formatDuration(int totalSeconds) {
+    final minutes = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  void _toggleListening() {
+    if (_isListening) {
+      stopSpeechToText();
+    } else {
+      startSpeechToText(
+        onResult: (text) {
+          if (mounted) {
+            setState(() {
+              _controller.text = _controller.text + text;
+              _onTextChanged();
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(error),
+                backgroundColor: AuraColors.error,
+              ),
+            );
+          }
+        },
+        onListeningStarted: () {
+          if (mounted) {
+            setState(() => _isListening = true);
+          }
+        },
+        onListeningStopped: () {
+          if (mounted) {
+            setState(() => _isListening = false);
+          }
+        },
+      );
+    }
   }
 
   void _onFocusChanged() {
@@ -70,6 +164,7 @@ class _ChatInputState extends State<ChatInput>
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
     _controller.removeListener(_onTextChanged);
     _focusNode.removeListener(_onFocusChanged);
     _controller.dispose();
@@ -126,109 +221,161 @@ class _ChatInputState extends State<ChatInput>
               // ── Input Row ──
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Attach Button
-                    _ActionButton(
-                      icon: Icons.add_rounded,
-                      onTap: widget.onAttach,
-                      tooltip: 'Đính kèm',
-                    ),
-
-                    const SizedBox(width: 4),
-
-                    // Text Input
-                    Expanded(
-                      child: Container(
-                        constraints: const BoxConstraints(maxHeight: 120),
-                        decoration: const BoxDecoration(
-                          color: Colors.transparent,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            // Emoji button
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4, bottom: 4),
-                              child: _ActionButton(
-                                icon: _showEmoji
-                                    ? Icons.keyboard_rounded
-                                    : Icons.emoji_emotions_outlined,
-                                onTap: () {
-                                  if (_showEmoji) {
-                                    _focusNode.requestFocus();
-                                  } else {
-                                    _focusNode.unfocus();
-                                  }
-                                  setState(() {
-                                    _showEmoji = !_showEmoji;
-                                  });
-                                },
-                                tooltip: 'Emoji',
-                                size: 20,
+                child: _isRecordingAudio
+                    ? Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded, color: Colors.redAccent),
+                            onPressed: _cancelAudioRecording,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.fiber_manual_record_rounded,
+                                  color: Colors.redAccent,
+                                  size: 16,
+                                ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                                  .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.2, 1.2), duration: 600.ms),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Đang ghi âm... ${_formatDuration(_recordingSeconds)}',
+                                  style: AuraTypography.bodyMedium.copyWith(
+                                    color: AuraColors.textSecondary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: _stopAudioRecording,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AuraColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.send_rounded,
+                                color: Colors.white,
+                                size: 18,
                               ),
                             ),
+                          ).animate().scale(
+                            begin: const Offset(0.8, 0.8),
+                            end: const Offset(1.0, 1.0),
+                            duration: 200.ms,
+                            curve: Curves.elasticOut,
+                          ),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // Attach Button
+                          _ActionButton(
+                            icon: Icons.add_rounded,
+                            onTap: widget.onAttach,
+                            tooltip: 'Đính kèm',
+                          ),
 
-                            // TextField
-                            Expanded(
-                              child: TextField(
-                                controller: _controller,
-                                focusNode: _focusNode,
-                                enabled: widget.enabled,
-                                maxLines: 5,
-                                minLines: 1,
-                                textCapitalization: TextCapitalization.sentences,
-                                style: AuraTypography.bodyMedium.copyWith(
-                                  color: AuraColors.textPrimary,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: widget.replyingTo != null
-                                      ? 'Trả lời...'
-                                      : 'Nhắn tin...',
-                                  hintStyle: AuraTypography.bodyMedium.copyWith(
-                                    color: AuraColors.textTertiary,
+                          const SizedBox(width: 4),
+
+                          // Text Input
+                          Expanded(
+                            child: Container(
+                              constraints: const BoxConstraints(maxHeight: 120),
+                              decoration: const BoxDecoration(
+                                color: Colors.transparent,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  // Emoji button
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4, bottom: 4),
+                                    child: _ActionButton(
+                                      icon: _showEmoji
+                                          ? Icons.keyboard_rounded
+                                          : Icons.emoji_emotions_outlined,
+                                      onTap: () {
+                                        if (_showEmoji) {
+                                          _focusNode.requestFocus();
+                                        } else {
+                                          _focusNode.unfocus();
+                                        }
+                                        setState(() {
+                                          _showEmoji = !_showEmoji;
+                                        });
+                                      },
+                                      tooltip: 'Emoji',
+                                      size: 20,
+                                    ),
                                   ),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 10,
+
+                                  // TextField
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _controller,
+                                      focusNode: _focusNode,
+                                      enabled: widget.enabled,
+                                      maxLines: 5,
+                                      minLines: 1,
+                                      textCapitalization: TextCapitalization.sentences,
+                                      style: AuraTypography.bodyMedium.copyWith(
+                                        color: AuraColors.textPrimary,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: widget.replyingTo != null
+                                            ? 'Trả lời...'
+                                            : 'Nhắn tin...',
+                                        hintStyle: AuraTypography.bodyMedium.copyWith(
+                                          color: AuraColors.textTertiary,
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 10,
+                                        ),
+                                        isDense: true,
+                                      ),
+                                      onSubmitted: (_) => _handleSend(),
+                                    ),
                                   ),
-                                  isDense: true,
-                                ),
-                                onSubmitted: (_) => _handleSend(),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          // Send Button
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            transitionBuilder: (child, animation) {
+                              return ScaleTransition(
+                                scale: animation,
+                                child: child,
+                              );
+                            },
+                            child: _hasText
+                                ? _SendButton(
+                                    key: const ValueKey('send'),
+                                    onTap: _handleSend,
+                                  )
+                                : _ActionButton(
+                                    key: const ValueKey('mic'),
+                                    icon: Icons.mic_rounded,
+                                    onTap: _startAudioRecording,
+                                    tooltip: 'Voice Message',
+                                  ),
+                          ),
+                        ],
                       ),
-                    ),
-
-                    const SizedBox(width: 8),
-
-                    // Send Button
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      transitionBuilder: (child, animation) {
-                        return ScaleTransition(
-                          scale: animation,
-                          child: child,
-                        );
-                      },
-                      child: _hasText
-                          ? _SendButton(
-                              key: const ValueKey('send'),
-                              onTap: _handleSend,
-                            )
-                          : _ActionButton(
-                              key: const ValueKey('mic'),
-                              icon: Icons.mic_rounded,
-                              onTap: () {},
-                              tooltip: 'Voice',
-                            ),
-                    ),
-                  ],
-                ),
               ),
               if (_showEmoji)
                 ClipRRect(
@@ -414,12 +561,14 @@ class _ActionButton extends StatelessWidget {
     this.onTap,
     this.tooltip,
     this.size = 22,
+    this.color,
   });
 
   final IconData icon;
   final VoidCallback? onTap;
   final String? tooltip;
   final double size;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -433,7 +582,7 @@ class _ActionButton extends StatelessWidget {
           child: Icon(
             icon,
             size: size,
-            color: AuraColors.textTertiary,
+            color: color ?? AuraColors.textTertiary,
           ),
         ),
       ),

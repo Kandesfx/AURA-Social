@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../models/message_model.dart';
 import 'message_actions_sheet.dart';
+import '../../../core/services/web_helpers.dart';
+import 'dart:async';
+import 'package:flutter_animate/flutter_animate.dart';
 
 /// AURA Social – Message Bubble Widget
 ///
@@ -77,7 +81,7 @@ class MessageBubble extends StatelessWidget {
                   // Reply preview (nếu có)
                   if (message.replyTo != null) _buildReplyPreview(),
                   // Main content
-                  _buildContent(),
+                  _buildContent(context),
                 ],
               ),
             ),
@@ -171,53 +175,141 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
     switch (message.type) {
       case MessageType.image:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: message.mediaUrl != null && message.mediaUrl!.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: message.mediaUrl!,
-                      width: 220,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        width: 220,
-                        height: 160,
-                        color: AuraColors.surfaceVariant,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AuraColors.primary,
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  if (message.mediaUrl != null && message.mediaUrl!.isNotEmpty) {
+                    _showFullScreenImage(context, message.mediaUrl!);
+                  }
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: message.mediaUrl != null && message.mediaUrl!.isNotEmpty
+                      ? (kIsWeb
+                          ? Image.network(
+                              message.mediaUrl!,
+                              width: 220,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, error, ___) => Container(
+                                width: 220,
+                                height: 160,
+                                color: AuraColors.surfaceVariant,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.broken_image_rounded,
+                                      size: 40,
+                                      color: AuraColors.textTertiary,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                      child: Text(
+                                        'Lỗi: $error\nUrl: ${message.mediaUrl}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 8),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  width: 220,
+                                  height: 160,
+                                  color: AuraColors.surfaceVariant,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AuraColors.primary,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: message.mediaUrl!,
+                              width: 220,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(
+                                width: 220,
+                                height: 160,
+                                color: AuraColors.surfaceVariant,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AuraColors.primary,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, __, error) => Container(
+                                width: 220,
+                                height: 160,
+                                color: AuraColors.surfaceVariant,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.broken_image_rounded,
+                                      size: 40,
+                                      color: AuraColors.textTertiary,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                      child: Text(
+                                        'Lỗi: $error\nUrl: ${message.mediaUrl}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 8),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ))
+                       : Container(
+                          width: 220,
+                          height: 160,
+                          color: AuraColors.surfaceVariant,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.image_rounded,
+                                  size: 48,
+                                  color: AuraColors.textTertiary,
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: Text(
+                                    'Type: ${message.type.value}\nmediaUrl: "${message.mediaUrl ?? 'null'}"\ncontent: "${message.content}"',
+                                    style: const TextStyle(color: Colors.white, fontSize: 9),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        width: 220,
-                        height: 160,
-                        color: AuraColors.surfaceVariant,
-                        child: Icon(
-                          Icons.broken_image_rounded,
-                          size: 40,
-                          color: AuraColors.textTertiary,
-                        ),
-                      ),
-                    )
-                  : Container(
-                      width: 220,
-                      height: 160,
-                      color: AuraColors.surfaceVariant,
-                      child: Center(
-                        child: Icon(
-                          Icons.image_rounded,
-                          size: 48,
-                          color: AuraColors.textTertiary,
-                        ),
-                      ),
-                    ),
+                ),
+              ),
             ),
             if (message.content.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -229,6 +321,12 @@ class MessageBubble extends StatelessWidget {
               ),
             ],
           ],
+        );
+
+      case MessageType.audio:
+        return VoiceMessagePlayer(
+          url: message.mediaUrl ?? '',
+          isMine: isMine,
         );
 
       case MessageType.system:
@@ -293,6 +391,83 @@ class MessageBubble extends StatelessWidget {
     final h = time.hour.toString().padLeft(2, '0');
     final m = time.minute.toString().padLeft(2, '0');
     return '$h:$m';
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (context) => Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  color: Colors.transparent,
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: Center(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: kIsWeb
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              size: 64,
+                              color: Colors.white30,
+                            ),
+                          ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => const Center(
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              size: 64,
+                              color: Colors.white30,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -361,6 +536,155 @@ class DateSeparator extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class VoiceMessagePlayer extends StatefulWidget {
+  final String url;
+  final bool isMine;
+
+  const VoiceMessagePlayer({
+    super.key,
+    required this.url,
+    required this.isMine,
+  });
+
+  @override
+  State<VoiceMessagePlayer> createState() => _VoiceMessagePlayerState();
+}
+
+class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
+  bool _isPlaying = false;
+  Timer? _timer;
+  int _seconds = 0;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startPlayback() {
+    setState(() {
+      _isPlaying = true;
+      _seconds = 0;
+    });
+    
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _seconds++;
+        });
+      }
+    });
+
+    playAudioUrl(
+      widget.url,
+      () {
+        _stopPlaybackState();
+      },
+      (error) {
+        _stopPlaybackState();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: AuraColors.error,
+          ),
+        );
+      },
+    );
+  }
+
+  void _stopPlaybackState() {
+    _timer?.cancel();
+    _timer = null;
+    if (mounted) {
+      setState(() {
+        _isPlaying = false;
+        _seconds = 0;
+      });
+    }
+  }
+
+  void _togglePlay() {
+    if (_isPlaying) {
+      stopAudioPlayback();
+      _stopPlaybackState();
+    } else {
+      _startPlayback();
+    }
+  }
+
+  String _formatTime(int sec) {
+    final m = (sec ~/ 60).toString().padLeft(2, '0');
+    final s = (sec % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isMine ? Colors.white : AuraColors.textPrimary;
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Play Button
+        GestureDetector(
+          onTap: _togglePlay,
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: widget.isMine
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : AuraColors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              color: color,
+              size: 22,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Waveform visualizer simulation
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(8, (index) {
+            final heights = [12.0, 24.0, 16.0, 28.0, 20.0, 14.0, 22.0, 10.0];
+            final barHeight = heights[index % heights.length];
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2.0),
+              width: 3,
+              height: barHeight,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: _isPlaying ? 1.0 : 0.4),
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            ).animate(
+              target: _isPlaying ? 1.0 : 0.0,
+              onPlay: (controller) => controller.repeat(reverse: true),
+            ).scaleY(
+              begin: 0.6,
+              end: 1.2,
+              duration: Duration(milliseconds: 300 + (index * 80)),
+              curve: Curves.easeInOut,
+            );
+          }),
+        ),
+        const SizedBox(width: 16),
+        // Timer
+        Text(
+          _isPlaying ? _formatTime(_seconds) : 'Tin nhắn thoại',
+          style: AuraTypography.bodySmall.copyWith(
+            color: color.withValues(alpha: 0.8),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

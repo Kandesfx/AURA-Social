@@ -160,18 +160,15 @@ service cloud.firestore {
     match /soul_connections/{connectionId} {
       // Chỉ 2 người trong connection mới đọc được
       allow read: if isAuthenticated()
-                  && (request.auth.uid == resource.data.userId1
-                      || request.auth.uid == resource.data.userId2);
+                  && request.auth.uid in resource.data.participants;
 
-      // Tạo: phải là 1 trong 2 user
+      // Tạo: phải là 1 trong các participants
       allow create: if isAuthenticated()
-                    && (request.auth.uid == request.resource.data.userId1
-                        || request.auth.uid == request.resource.data.userId2);
+                    && request.auth.uid in request.resource.data.participants;
 
       // Cập nhật status (accept/reject)
       allow update: if isAuthenticated()
-                    && (request.auth.uid == resource.data.userId1
-                        || request.auth.uid == resource.data.userId2);
+                    && request.auth.uid in resource.data.participants;
 
       allow delete: if false;
     }
@@ -225,6 +222,7 @@ service cloud.firestore {
       // Ai cũng tạo được report
       allow create: if isAuthenticated()
                     && request.resource.data.reporterId == request.auth.uid;
+    }
 
     // ════════════════════════════════════════════
     // CALLS (Audio / Video signaling)

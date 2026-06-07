@@ -118,6 +118,7 @@ class SoulConnectScreen extends ConsumerWidget {
                   onAccept: (suggestion) {
                     ref.read(soulActionProvider.notifier).accept(
                           suggestion.connectionId,
+                          suggestion.otherUser.uid,
                         );
                     ref.read(currentSoulIndexProvider.notifier).state++;
                   },

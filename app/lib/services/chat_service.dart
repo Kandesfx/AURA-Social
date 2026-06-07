@@ -348,15 +348,69 @@ class ChatService {
     }
 
     final doc = await _firestore.collection('users').doc(userId).get();
-    final data = doc.data() ??
-        (userId == demoPeerId
-            ? {
-                'display_name': 'AURA Demo',
-                'username': 'aura_demo',
-                'aura_dominant_emotion': 'joy',
-                'emotion_vector': {'joy': 0.6, 'trust': 0.3},
-              }
-            : {});
+    Map<String, dynamic>? data = doc.data();
+    
+    // Fallback data (Chống cháy cho các tài khoản ảo Soul Connect)
+    if (data == null) {
+      switch (userId) {
+        case demoPeerId:
+          data = {
+            'display_name': 'AURA Demo',
+            'username': 'aura_demo',
+            'aura_dominant_emotion': 'joy',
+            'emotion_vector': {'joy': 0.6, 'trust': 0.3},
+          };
+          break;
+        case 'user-minh-anh':
+          data = {
+            'display_name': 'Trần Minh Anh',
+            'username': 'minh_anh',
+            'aura_dominant_emotion': 'joy',
+            'emotion_vector': {'joy': 0.40, 'trust': 0.25},
+            'avatar_url': 'https://api.dicebear.com/7.x/adventurer/svg?seed=MinhAnh',
+          };
+          break;
+        case 'user-hoang-dung':
+          data = {
+            'display_name': 'Hoàng Dũng',
+            'username': 'hoang_dung',
+            'aura_dominant_emotion': 'anticipation',
+            'emotion_vector': {'anticipation': 0.35, 'joy': 0.30},
+            'avatar_url': 'https://api.dicebear.com/7.x/adventurer/svg?seed=HoangDung',
+          };
+          break;
+        case 'user-thu-ha':
+          data = {
+            'display_name': 'Thu Hà',
+            'username': 'thu_ha',
+            'aura_dominant_emotion': 'trust',
+            'emotion_vector': {'trust': 0.30, 'joy': 0.25},
+            'avatar_url': 'https://api.dicebear.com/7.x/adventurer/svg?seed=ThuHa',
+          };
+          break;
+        case 'user-khanh-linh':
+          data = {
+            'display_name': 'Khánh Linh',
+            'username': 'khanh_linh',
+            'aura_dominant_emotion': 'surprise',
+            'emotion_vector': {'surprise': 0.30, 'joy': 0.25},
+            'avatar_url': 'https://api.dicebear.com/7.x/adventurer/svg?seed=KhanhLinh',
+          };
+          break;
+        case 'user-tuan-kiet':
+          data = {
+            'display_name': 'Tuấn Kiệt',
+            'username': 'tuan_kiet',
+            'aura_dominant_emotion': 'anticipation',
+            'emotion_vector': {'anticipation': 0.30, 'joy': 0.28},
+            'avatar_url': 'https://api.dicebear.com/7.x/adventurer/svg?seed=TuanKiet',
+          };
+          break;
+        default:
+          data = {};
+      }
+    }
+
     _userCache[userId] = data;
     return data;
   }

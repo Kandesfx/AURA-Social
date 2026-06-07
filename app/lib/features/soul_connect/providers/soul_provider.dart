@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/soul_service.dart';
 import '../models/soul_connection_model.dart';
+import '../../chat/providers/chat_provider.dart';
 
 /// AURA Social – Soul Connect Providers
 ///
@@ -21,7 +22,7 @@ final currentSoulIndexProvider = StateProvider.autoDispose<int>((ref) => 0);
 final soulActionProvider =
     StateNotifierProvider.autoDispose<SoulActionNotifier, SoulActionState>(
         (ref) {
-  return SoulActionNotifier(ref.read(soulConnectServiceProvider));
+  return SoulActionNotifier(ref.read(soulConnectServiceProvider), ref);
 });
 
 /// State cho soul actions
@@ -54,15 +55,20 @@ class SoulActionState {
 }
 
 class SoulActionNotifier extends StateNotifier<SoulActionState> {
-  SoulActionNotifier(this._service) : super(const SoulActionState());
+  SoulActionNotifier(this._service, this._ref) : super(const SoulActionState());
 
   final SoulConnectService _service;
+  final Ref _ref;
 
   /// Accept connection
-  Future<void> accept(String connectionId) async {
+  Future<void> accept(String connectionId, String peerId) async {
     state = state.copyWith(isProcessing: true, error: null);
     try {
       await _service.respondToConnection(connectionId, 'accept');
+      
+      // Chống cháy: Tự động tạo phòng chat trống khi Accept
+      await _ref.read(conversationActionsProvider).getOrCreateConversation(peerId);
+
       state = state.copyWith(
         isProcessing: false,
         lastAction: 'accept',

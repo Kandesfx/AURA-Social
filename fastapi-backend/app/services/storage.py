@@ -28,7 +28,7 @@ def _get_accessible_base_url(request=None) -> str:
         base_url = base_url.replace("://0.0.0.0:", "://10.0.2.2:")
         base_url = base_url.replace("://0.0.0.0", "://10.0.2.2")
         return base_url
-    return "http://10.0.2.2:8080"
+    return "http://10.0.2.2:8000"
 
 
 class R2StorageService:

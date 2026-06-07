@@ -11,6 +11,7 @@ import '../models/post_model.dart';
 import '../widgets/post_card.dart';
 import '../../../providers/user_profile_provider.dart';
 import '../../wellbeing/widgets/crisis_resource_card.dart';
+import '../../wellbeing/widgets/break_card.dart';
 import '../../../providers/emotion_profile_provider.dart';
 
 /// AURA Social – Feed Screen
@@ -414,54 +415,79 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
         padding: const EdgeInsets.only(top: 8, bottom: 100),
         itemCount: _posts.length + (_hasMore ? 1 : 0) + (showCrisisCard ? 1 : 0),
         itemBuilder: (context, index) {
-          if (showCrisisCard) {
-            if (index == 0) {
-              return CrisisResourceCard(
-                onDismiss: () {
-                  setState(() {
-                    _dismissedCrisisCard = true;
-                  });
-                },
-                onStartAnonymousChat: () {
-                  context.push('/chat');
-                },
-                onCallHotline: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đang kết nối tới đường dây nóng...'),
-                    ),
-                  );
-                },
-              );
-            }
-            final postIndex = index - 1;
-            if (postIndex == _posts.length) {
-              return _buildLoadMoreIndicator();
+          final postIndex = showCrisisCard ? index - 1 : index;
+
+          if (showCrisisCard && index == 0) {
+            return CrisisResourceCard(
+              onDismiss: () {
+                setState(() {
+                  _dismissedCrisisCard = true;
+                });
+              },
+              onStartAnonymousChat: () {
+                context.push('/chat');
+              },
+              onCallHotline: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đang kết nối tới đường dây nóng...'),
+                  ),
+                );
+              },
+            );
+          }
+
+          if (postIndex == _posts.length) {
+            return _buildLoadMoreIndicator();
+          }
+
+          final postData = _posts[postIndex];
+          final isBreaker = postData['is_breaker'] == true;
+          final delay = Duration(milliseconds: (postIndex * 100).clamp(0, 500));
+
+          if (isBreaker) {
+            final variant = postData['breaker_type'] ?? 'positive_inject';
+            final rawContent = postData['content'] ?? '';
+            String title = 'Góc an lành';
+            String subtitle = rawContent;
+            String? suggestion;
+
+            if (variant == 'session_break') {
+              title = 'Đã đến lúc nghỉ ngơi';
+              subtitle = rawContent.replaceAll(RegExp(r'^🌊\s*\*\*Đã đến lúc nghỉ ngơi\*\*:\s*'), '');
+              suggestion = 'Hãy nhắm mắt thư giãn 30 giây, uống nước ấm hoặc vươn vai nhé!';
+            } else {
+              title = 'Góc tươi sáng';
+              subtitle = rawContent.replaceAll(RegExp(r'^✨\s*\*\*Góc tươi sáng\*\*:\s*'), '');
+              suggestion = 'Một nụ cười hay một hít thở sâu có thể thay đổi cảm giác của bạn.';
             }
 
-            final delay = Duration(milliseconds: (postIndex * 100).clamp(0, 500));
-            return PostCard(
-              post: PostModel.fromMockMap(_posts[postIndex]),
-              persistReactionChanges: false,
-            )
-                .animate()
-                .fadeIn(duration: 400.ms, delay: delay)
-                .slideY(begin: 0.05, duration: 400.ms, delay: delay);
-          } else {
-            // ── Loading more indicator at bottom ──
-            if (index == _posts.length) {
-              return _buildLoadMoreIndicator();
-            }
-
-            final delay = Duration(milliseconds: (index * 100).clamp(0, 500));
-            return PostCard(
-              post: PostModel.fromMockMap(_posts[index]),
-              persistReactionChanges: false,
+            return WellbeingBreakCard(
+              title: title,
+              subtitle: subtitle,
+              variant: variant,
+              suggestion: suggestion,
+              onDismiss: () {
+                setState(() {
+                  _posts.removeAt(postIndex);
+                });
+              },
+              onViewCompass: () {
+                context.push('/wellbeing');
+              },
             )
                 .animate()
                 .fadeIn(duration: 400.ms, delay: delay)
                 .slideY(begin: 0.05, duration: 400.ms, delay: delay);
           }
+
+          return PostCard(
+            post: PostModel.fromMockMap(postData),
+            persistReactionChanges: false,
+          )
+              .animate()
+              .fadeIn(duration: 400.ms, delay: delay)
+              .slideY(begin: 0.05, duration: 400.ms, delay: delay);
         },
       ),
     );

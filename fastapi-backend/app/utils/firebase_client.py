@@ -35,17 +35,17 @@ def init_firebase():
     if json_str:
         service_info = json.loads(json_str)
         cred = credentials.Certificate(service_info)
-        print("🔑 Firebase init: from env var FIREBASE_SERVICE_ACCOUNT_JSON")
+        print("[Firebase] Firebase init: from env var FIREBASE_SERVICE_ACCOUNT_JSON")
 
     # Cách 2: File service-account.json (dùng local dev)
     elif os.path.exists(settings.firebase_service_account_path):
         cred = credentials.Certificate(settings.firebase_service_account_path)
-        print(f"🔑 Firebase init: from file {settings.firebase_service_account_path}")
+        print(f"[Firebase] Firebase init: from file {settings.firebase_service_account_path}")
 
     # Cách 3: Application Default Credentials (GCP managed)
     else:
         cred = credentials.ApplicationDefault()
-        print("🔑 Firebase init: from Application Default Credentials")
+        print("[Firebase] Firebase init: from Application Default Credentials")
 
     firebase_admin.initialize_app(cred, {
         "databaseURL": db_url,

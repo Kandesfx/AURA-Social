@@ -14,10 +14,19 @@ import 'package:flutter/foundation.dart';
 /// ```
 class AuraApiService {
   /// Base URL của FastAPI backend (Cloud Run hoặc localhost)
-  static const String _baseUrl = String.fromEnvironment(
-    'API_URL',
-    defaultValue: 'http://10.0.2.2:8080', // Android emulator → host machine
-  );
+  static String get _baseUrl {
+    const envUrl = String.fromEnvironment('API_URL');
+    if (envUrl.isNotEmpty) return envUrl;
+
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    }
+    // Android emulator dùng 10.0.2.2, iOS simulator / web / desktop dùng localhost
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://localhost:8000';
+  }
 
   late final Dio dio;
 

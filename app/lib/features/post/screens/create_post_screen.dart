@@ -11,6 +11,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/constants/emotion_types.dart';
 import '../../feed/models/post_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../providers/api_service_provider.dart';
 
 /// AURA Social – Create Post Screen (Connected to Firestore + Firebase Storage)
 ///

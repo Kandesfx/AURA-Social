@@ -7,6 +7,8 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
 import '../models/conversation_model.dart';
 import '../providers/chat_provider.dart';
+import '../../../services/chat_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// AURA Social – Conversations List Screen
 ///
@@ -32,6 +34,47 @@ class _ConversationsListScreenState
   String _searchQuery = '';
   bool _isEditing = false;
   final Set<String> _selectedConversationIds = {};
+  final Set<String> _mutedConversationIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMutedConversations();
+  }
+
+  Future<void> _loadMutedConversations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+    final tempSet = <String>{};
+    for (final key in keys) {
+      if (key.startsWith('muted_conversation_') && prefs.getBool(key) == true) {
+        final convId = key.substring('muted_conversation_'.length);
+        tempSet.add(convId);
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _mutedConversationIds.clear();
+        _mutedConversationIds.addAll(tempSet);
+      });
+    }
+  }
+
+  Future<void> _toggleMuteConversation(String conversationId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final isMuted = prefs.getBool('muted_conversation_$conversationId') ?? false;
+    final newMute = !isMuted;
+    await prefs.setBool('muted_conversation_$conversationId', newMute);
+    if (mounted) {
+      setState(() {
+        if (newMute) {
+          _mutedConversationIds.add(conversationId);
+        } else {
+          _mutedConversationIds.remove(conversationId);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -196,6 +239,101 @@ class _ConversationsListScreenState
             (c.peerName ?? '').toLowerCase().contains(_searchQuery) ||
             (c.lastMessage?.content ?? '').toLowerCase().contains(_searchQuery))
         .toList();
+  }
+
+  void _showConversationActions(BuildContext context, ConversationModel conv) {
+    final isMuted = _mutedConversationIds.contains(conv.id);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AuraColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  conv.peerName ?? 'Tùy chọn cuộc trò chuyện',
+                  style: AuraTypography.titleMedium.copyWith(
+                    color: AuraColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(height: 1, thickness: 0.5),
+              // Mark as read
+              ListTile(
+                leading: Icon(Icons.mark_chat_read_rounded, color: AuraColors.primary),
+                title: Text(
+                  'Đánh dấu đã đọc',
+                  style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textPrimary),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final currentUserId = ref.read(currentUserIdProvider);
+                  try {
+                    await ref.read(chatServiceProvider).resetUnreadCount(conv.id, currentUserId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã đánh dấu đã đọc'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Lỗi: $e'),
+                        backgroundColor: AuraColors.error,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              ),
+              // Mute notifications
+              ListTile(
+                leading: Icon(
+                  isMuted ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+                  color: isMuted ? Colors.green : Colors.orange,
+                ),
+                title: Text(
+                  isMuted ? 'Bật thông báo' : 'Tắt thông báo',
+                  style: AuraTypography.bodyMedium.copyWith(color: AuraColors.textPrimary),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _toggleMuteConversation(conv.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isMuted ? 'Đã bật nhận thông báo' : 'Đã tắt nhận thông báo'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
+              // Delete conversation
+              ListTile(
+                leading: Icon(Icons.delete_forever_rounded, color: AuraColors.error),
+                title: Text(
+                  'Xóa cuộc trò chuyện',
+                  style: AuraTypography.bodyMedium.copyWith(color: AuraColors.error),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteConversation(conv);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -391,6 +529,7 @@ class _ConversationsListScreenState
                 conversations: conversations
                     .where((c) => c.isPeerOnline)
                     .toList(),
+                onReturn: _loadMutedConversations,
               ),
 
               // ── Conversations List ──
@@ -502,6 +641,7 @@ class _ConversationsListScreenState
                                 currentUserId: currentUserId,
                                 isEditing: _isEditing,
                                 isSelected: _selectedConversationIds.contains(conv.id),
+                                isMuted: _mutedConversationIds.contains(conv.id),
                                 onTap: () {
                                   if (_isEditing) {
                                     setState(() {
@@ -512,7 +652,14 @@ class _ConversationsListScreenState
                                       }
                                     });
                                   } else {
-                                    context.push('/chat/${conv.id}');
+                                    context.push('/chat/${conv.id}').then((_) {
+                                      _loadMutedConversations();
+                                    });
+                                  }
+                                },
+                                onLongPress: () {
+                                  if (!_isEditing) {
+                                    _showConversationActions(context, conv);
                                   }
                                 },
                               ).animate().fadeIn(
@@ -610,9 +757,10 @@ class _ConversationsListScreenState
 
 /// Online friends horizontal scroll bar
 class _OnlineFriendsBar extends StatelessWidget {
-  const _OnlineFriendsBar({required this.conversations});
+  const _OnlineFriendsBar({required this.conversations, this.onReturn});
 
   final List<ConversationModel> conversations;
+  final VoidCallback? onReturn;
 
   @override
   Widget build(BuildContext context) {
@@ -642,7 +790,9 @@ class _OnlineFriendsBar extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: GestureDetector(
-                    onTap: () => context.push('/chat/${conv.id}'),
+                    onTap: () => context.push('/chat/${conv.id}').then((_) {
+                      onReturn?.call();
+                    }),
                     child: Column(
                       children: [
                         Stack(
@@ -706,15 +856,19 @@ class _ConversationTile extends StatelessWidget {
     required this.conversation,
     required this.currentUserId,
     required this.onTap,
+    this.onLongPress,
     this.isEditing = false,
     this.isSelected = false,
+    this.isMuted = false,
   });
 
   final ConversationModel conversation;
   final String currentUserId;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool isEditing;
   final bool isSelected;
+  final bool isMuted;
 
   @override
   Widget build(BuildContext context) {
@@ -723,6 +877,7 @@ class _ConversationTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -837,15 +992,28 @@ class _ConversationTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  _formatTime(conversation.lastMessage?.timestamp),
-                  style: AuraTypography.labelSmall.copyWith(
-                    color: hasUnread
-                        ? AuraColors.primary
-                        : AuraColors.textTertiary,
-                    fontWeight:
-                        hasUnread ? FontWeight.w600 : FontWeight.w400,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isMuted) ...[
+                      Icon(
+                        Icons.notifications_off_rounded,
+                        color: AuraColors.textTertiary,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      _formatTime(conversation.lastMessage?.timestamp),
+                      style: AuraTypography.labelSmall.copyWith(
+                        color: hasUnread
+                            ? AuraColors.primary
+                            : AuraColors.textTertiary,
+                        fontWeight:
+                            hasUnread ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 if (hasUnread)

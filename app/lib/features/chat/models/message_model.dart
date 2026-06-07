@@ -10,7 +10,8 @@ enum MessageType {
   sticker('sticker'),
   reaction('reaction'),
   system('system'),
-  aiSuggestion('ai_suggestion');
+  aiSuggestion('ai_suggestion'),
+  audio('audio');
 
   const MessageType(this.value);
   final String value;
@@ -109,7 +110,7 @@ class MessageModel {
       replyTo: json['reply_to'] != null
           ? ReplyInfo.fromJson(Map<String, dynamic>.from(json['reply_to'] as Map))
           : null,
-      mediaUrl: json['media_url'] as String?,
+      mediaUrl: (json['media_url'] ?? json['mediaUrl']) as String?,
     );
   }
 

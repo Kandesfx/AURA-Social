@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # API
     api_host: str = "0.0.0.0"
-    api_port: int = 8080
+    api_port: int = 8000
     api_debug: bool = True
     api_version: str = "1.0.0"
 
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # Security
     internal_api_key: str = ""
-    cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    cors_origins: str = "http://localhost:3000,http://localhost:8000"
 
     # ML Models
     emotion_model: str = "nlptown/bert-base-multilingual-uncased-sentiment"

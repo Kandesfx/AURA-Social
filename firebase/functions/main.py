@@ -17,7 +17,7 @@ from firebase_admin import initialize_app, firestore, auth, messaging
 app = initialize_app()
 
 # FastAPI backend URL (thay bằng Cloud Run URL khi deploy)
-FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://localhost:8080")
+FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://localhost:8000")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
 
 

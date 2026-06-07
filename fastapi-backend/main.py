@@ -17,27 +17,27 @@ async def lifespan(app: FastAPI):
     # Init Firebase Admin SDK
     from app.utils.firebase_client import init_firebase
     init_firebase()
-    print("✅ Firebase Admin SDK initialized")
+    print("[Firebase] Firebase Admin SDK initialized")
 
     # Init R2 Storage
     from app.services.storage import get_storage
     try:
         storage = get_storage()
-        print(f"✅ R2 Storage connected (bucket: {storage.bucket_name})")
+        print(f"[R2] R2 Storage connected (bucket: {storage.bucket_name})")
     except Exception as e:
-        print(f"⚠️  R2 Storage not configured: {e}")
+        print(f"[R2] R2 Storage not configured: {e}")
 
     # Load ML models at startup
     from app.ml.model_loader import model_loader
     model_loader.load_all()
     app.state.model_loader = model_loader
-    print("✅ ML models loaded")
+    print("[ML] ML models loaded")
 
-    print(f"🚀 AURA Social API v{settings.api_version} started")
+    print(f"[AURA] AURA Social API v{settings.api_version} started")
     yield
 
     # ── Shutdown ──
-    print("🔄 Shutting down AURA Social API...")
+    print("[System] Shutting down AURA Social API...")
 
 
 # ── Create FastAPI app ──

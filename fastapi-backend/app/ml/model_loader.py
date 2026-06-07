@@ -25,7 +25,7 @@ class ModelLoader:
         if self._loaded:
             return
 
-        print("📦 Loading ML models...")
+        print("[ML] Loading ML models...")
         settings = get_settings()
 
         # 1. Load Emotion / Sentiment analysis model
@@ -35,9 +35,9 @@ class ModelLoader:
                 model=settings.emotion_model,
                 device="cuda" if torch.cuda.is_available() else "cpu"
             )
-            print(f"✅ Loaded Emotion Model: {settings.emotion_model}")
+            print(f"[ML] Loaded Emotion Model: {settings.emotion_model}")
         except Exception as e:
-            print(f"❌ Failed to load Emotion Model: {e}")
+            print(f"[ML] Failed to load Emotion Model: {e}")
 
         # 2. Load Text Embedding model
         try:
@@ -47,12 +47,12 @@ class ModelLoader:
             self.embedding_model.eval()
             if torch.cuda.is_available():
                 self.embedding_model = self.embedding_model.to("cuda")
-            print(f"✅ Loaded Embedding Model: {settings.embedding_model}")
+            print(f"[ML] Loaded Embedding Model: {settings.embedding_model}")
         except Exception as e:
-            print(f"❌ Failed to load Embedding Model: {e}")
+            print(f"[ML] Failed to load Embedding Model: {e}")
 
         self._loaded = True
-        print("✅ All models loaded")
+        print("[ML] All models loaded")
 
     def get_emotion_model(self):
         """Get emotion analysis model pipeline."""
@@ -112,7 +112,7 @@ class ModelLoader:
 
             return embedding.tolist()
         except Exception as e:
-            print(f"⚠️ Error generating embedding: {e}")
+            print(f"[ML] Error generating embedding: {e}")
             return [0.0] * 384
 
 

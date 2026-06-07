@@ -2,7 +2,7 @@
 AURA Social – AI Wellbeing Pydantic Models
 """
 from pydantic import BaseModel
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 class WeeklyReportRequest(BaseModel):
     user_id: str

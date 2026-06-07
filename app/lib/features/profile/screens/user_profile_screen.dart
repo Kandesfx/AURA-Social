@@ -13,6 +13,7 @@ import '../../../shared/widgets/error_widget.dart';
 import '../../../providers/user_profile_provider.dart';
 import '../../../providers/emotion_profile_provider.dart';
 import '../../feed/models/post_model.dart';
+import '../../chat/providers/chat_provider.dart';
 
 /// AURA Social – Other User Profile Screen
 ///
@@ -34,6 +35,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   bool _isFollowing = false;
   bool _loadingFollow = true;
   bool _togglingFollow = false;
+  bool _startingChat = false;
 
   @override
   void initState() {
@@ -166,8 +168,38 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   ),
                   const SizedBox(width: 12),
                   SizedBox(height: 44, child: OutlinedButton.icon(
-                    onPressed: () {}, // TODO: navigate to chat
-                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    onPressed: _startingChat
+                        ? null
+                        : () async {
+                            setState(() => _startingChat = true);
+                            try {
+                              final conversation = await ref
+                                  .read(conversationActionsProvider)
+                                  .getOrCreateConversation(widget.userId);
+                              if (mounted) {
+                                context.push('/chat/${conversation.id}');
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text('Lỗi: $e'),
+                                  backgroundColor: AuraColors.error,
+                                ));
+                              }
+                            } finally {
+                              if (mounted) setState(() => _startingChat = false);
+                            }
+                          },
+                    icon: _startingChat
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AuraColors.primary,
+                            ),
+                          )
+                        : const Icon(Icons.chat_bubble_outline, size: 18),
                     label: const Text('Nhắn tin'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

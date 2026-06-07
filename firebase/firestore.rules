@@ -226,7 +226,26 @@ service cloud.firestore {
       allow create: if isAuthenticated()
                     && request.resource.data.reporterId == request.auth.uid;
 
-      allow update, delete: if false;
+    // ════════════════════════════════════════════
+    // CALLS (Audio / Video signaling)
+    // ════════════════════════════════════════════
+    match /calls/{callId} {
+      // Cho phép đọc nếu là caller hoặc receiver
+      allow read: if isAuthenticated()
+                    && (request.auth.uid == resource.data.caller_id
+                        || request.auth.uid == resource.data.receiver_id);
+      
+      // Cho phép tạo nếu caller_id là chính mình
+      allow create: if isAuthenticated()
+                    && request.auth.uid == request.resource.data.caller_id;
+
+      // Cho phép cập nhật nếu là caller hoặc receiver
+      allow update: if isAuthenticated()
+                    && (request.auth.uid == resource.data.caller_id
+                        || request.auth.uid == resource.data.receiver_id);
+      
+      // Không cho phép xóa cuộc gọi
+      allow delete: if false;
     }
   }
 }

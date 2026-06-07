@@ -302,6 +302,36 @@ class ChatService {
     );
   }
 
+  /// Gửi tin nhắn âm thanh (audio message).
+  Future<void> sendAudioMessage({
+    required String conversationId,
+    required String mediaUrl,
+    required List<String> participants,
+    ReplyInfo? replyTo,
+  }) async {
+    final message = MessageModel(
+      id: '',
+      senderId: _uid,
+      content: 'Tin nhắn thoại',
+      type: MessageType.audio,
+      timestamp: DateTime.now(),
+      readBy: {_uid: true},
+      mediaUrl: mediaUrl,
+      replyTo: replyTo,
+    );
+
+    final ref = _database.ref('messages/$conversationId').push();
+    await ref.set(message.toJson());
+
+    await updateConversationOnNewMessage(
+      conversationId: conversationId,
+      senderId: _uid,
+      content: '🎵 Tin nhắn thoại',
+      messageType: MessageType.audio.value,
+      participants: participants,
+    );
+  }
+
   /// Gửi tin nhắn kèm reply (trích dẫn).
   Future<void> sendMessageWithReply({
     required String conversationId,

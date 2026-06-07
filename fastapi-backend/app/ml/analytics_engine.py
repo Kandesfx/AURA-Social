@@ -28,7 +28,7 @@ class WeeklyAnalyticsEngine:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=settings.gemini_api_key)
-                return genai.GenerativeModel('gemini-2.0-flash')
+                return genai.GenerativeModel('gemini-2.5-flash')
             except Exception as e:
                 print(f"⚠️ AnalyticsEngine: Failed to configure AI Studio client: {e}")
                 
@@ -37,11 +37,11 @@ class WeeklyAnalyticsEngine:
             import vertexai
             from vertexai.generative_models import GenerativeModel
             
-            # Initialize Vertex AI. Location is set to asia-east1 (same as Cloud Run)
-            vertexai.init(project="aura-social-vn", location="asia-east1")
+            # Initialize Vertex AI. Location is set to asia-southeast1 (Singapore) where gemini-2.5-flash is available
+            vertexai.init(project="aura-social-vn", location="asia-southeast1")
             
             # Vertex AI Gemini model name
-            return GenerativeModel("gemini-2.0-flash")
+            return GenerativeModel("gemini-2.5-flash")
         except Exception as e:
             print(f"⚠️ AnalyticsEngine: Failed to configure Vertex AI client: {e}")
             return None

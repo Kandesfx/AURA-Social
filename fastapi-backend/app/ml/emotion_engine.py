@@ -141,7 +141,8 @@ class EmotionInferenceEngine:
     # ── Layer 3: Text Sentiment Analysis ──
     def analyze_texts(self, texts: List[str]) -> Dict[str, Any]:
         """
-        Perform NLP sentiment analysis on recent text logs using the HuggingFace model.
+        Perform NLP sentiment analysis on recent text logs using the HuggingFace model
+        combined with Vietnamese keyword-based Plutchik emotion heuristics.
         Returns a mapping onto Plutchik dimensions.
         """
         vector = np.zeros(8)
@@ -154,7 +155,23 @@ class EmotionInferenceEngine:
         if not valid_texts:
             return {'vector': [0.125] * 8}
 
+        # Define Vietnamese keyword emotional mappings
+        vietnamese_keywords = {
+            'joy': ['vui', 'hạnh phúc', 'sướng', 'yêu', 'thích', 'tuyệt vời', 'phấn khởi', 'hào hứng', 'cười', 'yêu đời', 'hớn hở', 'ấm áp'],
+            'trust': ['tin', 'tin tưởng', 'an tâm', 'yên tâm', 'an toàn', 'bình yên', 'thông cảm', 'thấu cảm', 'đồng cảm', 'chia sẻ'],
+            'anticipation': ['mong', 'chờ', 'đợi', 'hy vọng', 'hi vọng', 'kì vọng', 'tương lai', 'trông ngóng'],
+            'surprise': ['bất ngờ', 'ngạc nhiên', 'ngỡ ngàng', 'lạ lùng', 'ồ', 'lạ ghê'],
+            'sadness': ['buồn', 'khóc', 'cô đơn', 'nản', 'tệ', 'đau lòng', 'thất vọng', 'cô độc', 'mệt mỏi', 'chán', 'suy sụp', 'bế tắc', 'tủi thân'],
+            'fear': ['lo', 'sợ', 'hoang mang', 'run', 'lo lắng', 'lo âu', 'hoảng hốt', 'sợ hãi', 'bất an', 'kinh hãi'],
+            'anger': ['bực', 'ghét', 'điên', 'giận', 'tức', 'căm', 'tức giận', 'khó chịu', 'tức tối', 'phẫn nộ', 'hậm hực'],
+            'disgust': ['khinh', 'ghê', 'tởm', 'kinh tởm', 'chê', 'dơ', 'ghê tởm', 'bẩn']
+        }
+
         for text in valid_texts[:10]:  # limit to 10 items
+            text_lower = text.lower()
+            text_vector = np.zeros(8)
+            
+            # 1. Run HuggingFace Model
             try:
                 # model outputs: '1 star', '2 stars', etc.
                 result = sentiment_pipeline(text[:512])[0]
@@ -166,26 +183,48 @@ class EmotionInferenceEngine:
                 
                 if stars >= 4:
                     # Positive sentiment -> joy, trust, anticipation
-                    vector[0] += score * 0.5  # joy
-                    vector[1] += score * 0.3  # trust
-                    vector[2] += score * 0.2  # anticipation
+                    text_vector[0] += score * 0.5  # joy
+                    text_vector[1] += score * 0.3  # trust
+                    text_vector[2] += score * 0.2  # anticipation
                 elif stars <= 2:
                     # Negative sentiment -> sadness, anger, fear, disgust
-                    vector[4] += score * 0.4  # sadness
-                    if "tệ" in text.lower() or "ghét" in text.lower() or "bực" in text.lower():
-                        vector[6] += score * 0.4  # anger
+                    text_vector[4] += score * 0.4  # sadness
+                    if any(w in text_lower for w in ["tệ", "ghét", "bực", "tức", "giận"]):
+                        text_vector[6] += score * 0.4  # anger
                     else:
-                        vector[5] += score * 0.3  # fear
-                        vector[7] += score * 0.1  # disgust
+                        text_vector[5] += score * 0.3  # fear
+                        text_vector[7] += score * 0.1  # disgust
                 else:
                     # Neutral sentiment -> surprise, trust
-                    vector[3] += score * 0.4  # surprise
-                    vector[1] += score * 0.4  # trust
-                    vector[2] += score * 0.2  # anticipation
+                    text_vector[3] += score * 0.4  # surprise
+                    text_vector[1] += score * 0.4  # trust
+                    text_vector[2] += score * 0.2  # anticipation
             except Exception as e:
-                print(f"⚠️ Error analyzing text sentiment: {e}")
-                # Fallback to general neutral contribution
-                vector += 0.125
+                print(f"⚠️ Error analyzing text sentiment with model: {e}")
+                text_vector += 0.125
+
+            # 2. Apply Vietnamese Keyword Heuristics
+            keyword_matches = 0
+            for i, emotion in enumerate(EMOTIONS):
+                keywords = vietnamese_keywords[emotion]
+                # Match full words or substrings carefully
+                matched = False
+                for kw in keywords:
+                    # Check if keyword is in text (with simple word boundary checks)
+                    if kw in text_lower:
+                        # Add a strong weight for matches
+                        text_vector[i] += 0.6
+                        matched = True
+                if matched:
+                    keyword_matches += 1
+
+            # Normalize text vector contribution
+            if text_vector.sum() > 0:
+                text_vector = text_vector / text_vector.sum()
+            else:
+                text_vector = np.full(8, 0.125)
+                
+            vector += text_vector
 
         if vector.sum() > 0:
             vector = vector / vector.sum()

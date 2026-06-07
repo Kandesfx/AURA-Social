@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../models/wave_model.dart';
@@ -13,9 +14,9 @@ import '../widgets/wave_member_list.dart';
 /// Person 3, Task #17
 /// Group chat screen cho 1 Emotional Wave.
 /// - Wave info header
-/// - Message list
-/// - Input bar
-/// - Member list drawer
+/// - Message list (stream từ RTDB)
+/// - Input bar (gửi lên RTDB)
+/// - Member list drawer (Firestore subcollection)
 class WaveChatScreen extends ConsumerStatefulWidget {
   const WaveChatScreen({
     super.key,
@@ -32,6 +33,13 @@ class _WaveChatScreenState extends ConsumerState<WaveChatScreen> {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _focusNode = FocusNode();
+
+  /// Current user ID từ FirebaseAuth
+  String get _currentUserId => FirebaseAuth.instance.currentUser!.uid;
+
+  /// Current user display name
+  String get _currentUserName =>
+      FirebaseAuth.instance.currentUser?.displayName ?? 'Bạn';
 
   @override
   void initState() {
@@ -60,15 +68,19 @@ class _WaveChatScreenState extends ConsumerState<WaveChatScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    ref.read(waveMessagesProvider(widget.waveId).notifier)
-        .sendMessage(text, 'Bạn');
+    // Gửi message lên RTDB qua WaveActions
+    ref.read(waveActionsProvider).sendMessage(
+          waveId: widget.waveId,
+          content: text,
+          senderName: _currentUserName,
+        );
     _textController.clear();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   @override
   Widget build(BuildContext context) {
-    final messages = ref.watch(waveMessagesProvider(widget.waveId));
+    final messagesAsync = ref.watch(waveMessagesProvider(widget.waveId));
     final wavesAsync = ref.watch(activeWavesProvider);
 
     // Find wave info
@@ -86,23 +98,55 @@ class _WaveChatScreenState extends ConsumerState<WaveChatScreen> {
 
           // ── Messages ──
           Expanded(
-            child: messages.isEmpty
-                ? _buildEmptyChat()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(top: 8, bottom: 8),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      final isMine = msg.senderId == 'current-user-id';
+            child: messagesAsync.when(
+              loading: () => Center(
+                child: CircularProgressIndicator(
+                  color: AuraColors.primary,
+                  strokeWidth: 2,
+                ),
+              ),
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline_rounded,
+                        size: 40, color: AuraColors.error.withValues(alpha: 0.5)),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Không thể tải tin nhắn',
+                      style: AuraTypography.bodyMedium.copyWith(
+                        color: AuraColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              data: (messages) {
+                if (messages.isEmpty) return _buildEmptyChat();
 
-                      return _WaveMessageBubble(
-                        message: msg,
-                        isMine: isMine,
-                      ).animate(delay: Duration(milliseconds: (index * 30).clamp(0, 300)))
-                          .fadeIn(duration: 250.ms);
-                    },
-                  ),
+                // Auto-scroll khi có message mới
+                WidgetsBinding.instance
+                    .addPostFrameCallback((_) => _scrollToBottom());
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = messages[index];
+                    final isMine = msg.senderId == _currentUserId;
+
+                    return _WaveMessageBubble(
+                      message: msg,
+                      isMine: isMine,
+                    ).animate(
+                        delay: Duration(
+                            milliseconds: (index * 30).clamp(0, 300)))
+                        .fadeIn(duration: 250.ms);
+                  },
+                );
+              },
+            ),
           ),
 
           // ── Input ──

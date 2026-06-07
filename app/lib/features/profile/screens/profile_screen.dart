@@ -11,7 +11,6 @@ import '../../../shared/widgets/loading_widget.dart';
 import '../../../shared/widgets/error_widget.dart';
 import '../../../providers/user_profile_provider.dart';
 import '../../../providers/emotion_profile_provider.dart';
-import '../../../providers/auth_state_provider.dart';
 import '../../../core/constants/emotion_types.dart';
 import '../../feed/models/post_model.dart';
 
@@ -222,53 +221,6 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 /// Emotional Compass card – hiển thị dominant emotion + confidence + mode
-class _EmotionalCompassCard extends StatelessWidget {
-  const _EmotionalCompassCard({required this.emotion});
-  final dynamic emotion; // EmotionProfileModel
-
-  @override
-  Widget build(BuildContext context) {
-    final dominant = emotion.dominantEmotion as String;
-    final emotionType = EmotionType.values.where((e) => e.key == dominant).firstOrNull;
-    final conf = ((emotion.emotionConfidence as double) * 100).toInt();
-    final mode = EmotionalMode.values.where((m) => m.key == (emotion.emotionalMode as String)).firstOrNull;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [
-          AuraColors.getEmotionColor(dominant).withValues(alpha: .08),
-          AuraColors.getEmotionColor(dominant).withValues(alpha: .02),
-        ], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AuraColors.getEmotionColor(dominant).withValues(alpha: .15)),
-      ),
-      child: Row(children: [
-        Container(padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: AuraColors.getEmotionColor(dominant).withValues(alpha: .12), borderRadius: BorderRadius.circular(12)),
-          child: Text(emotionType?.emoji ?? '🧭', style: const TextStyle(fontSize: 24))),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Cảm xúc hiện tại', style: AuraTypography.titleSmall.copyWith(color: AuraColors.textPrimary, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Row(children: [
-            Text('${emotionType?.emoji ?? ""} ${emotionType?.labelVi ?? dominant}',
-              style: AuraTypography.bodySmall.copyWith(color: AuraColors.getEmotionColor(dominant), fontWeight: FontWeight.w600)),
-            const SizedBox(width: 12),
-            Text('📊 $conf%', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textSecondary)),
-          ]),
-          if (mode != null) ...[
-            const SizedBox(height: 2),
-            Text('Mode: ${mode.emoji} ${mode.labelVi}', style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary, fontSize: 11)),
-          ],
-          Text(emotion.moodDescription as String, style: AuraTypography.bodySmall.copyWith(color: AuraColors.textTertiary, fontSize: 11)),
-        ])),
-      ]),
-    );
-  }
-}
-
 /// Post grid – query Firestore posts của 1 user
 class _PostGrid extends StatelessWidget {
   const _PostGrid({required this.userId});

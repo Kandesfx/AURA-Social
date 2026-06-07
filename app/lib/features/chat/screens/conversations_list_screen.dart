@@ -30,11 +30,162 @@ class _ConversationsListScreenState
     extends ConsumerState<ConversationsListScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isEditing = false;
+  final Set<String> _selectedConversationIds = {};
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _deleteConversation(ConversationModel conv) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Xóa cuộc trò chuyện?',
+          style: AuraTypography.titleMedium.copyWith(
+            color: AuraColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa cuộc trò chuyện với ${conv.peerName ?? 'User'} không? Hành động này sẽ xóa vĩnh viễn toàn bộ tin nhắn.',
+          style: AuraTypography.bodyMedium.copyWith(
+            color: AuraColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Hủy',
+              style: AuraTypography.labelLarge.copyWith(
+                color: AuraColors.textTertiary,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AuraColors.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Xóa',
+              style: AuraTypography.labelLarge.copyWith(
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await ref
+            .read(conversationActionsProvider)
+            .deleteConversation(conv.id);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+                'Đã xóa cuộc trò chuyện với ${conv.peerName ?? 'User'}'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi xóa cuộc trò chuyện: $e'),
+            backgroundColor: AuraColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteSelectedConversations() async {
+    if (_selectedConversationIds.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Xóa ${_selectedConversationIds.length} cuộc trò chuyện?',
+          style: AuraTypography.titleMedium.copyWith(
+            color: AuraColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa tất cả các cuộc trò chuyện đã chọn không? Hành động này sẽ xóa vĩnh viễn toàn bộ tin nhắn.',
+          style: AuraTypography.bodyMedium.copyWith(
+            color: AuraColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Hủy',
+              style: AuraTypography.labelLarge.copyWith(
+                color: AuraColors.textTertiary,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AuraColors.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Xóa',
+              style: AuraTypography.labelLarge.copyWith(
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final messenger = ScaffoldMessenger.of(context);
+      final count = _selectedConversationIds.length;
+      try {
+        final actions = ref.read(conversationActionsProvider);
+        for (final id in _selectedConversationIds) {
+          await actions.deleteConversation(id);
+        }
+        setState(() {
+          _selectedConversationIds.clear();
+          _isEditing = false;
+        });
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Đã xóa $count cuộc trò chuyện'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi xóa cuộc trò chuyện: $e'),
+            backgroundColor: AuraColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   List<ConversationModel> _filteredConversations(
@@ -56,28 +207,67 @@ class _ConversationsListScreenState
     return Scaffold(
       backgroundColor: AuraColors.background,
       appBar: AppBar(
-        title: ShaderMask(
-          shaderCallback: (bounds) =>
-              AuraColors.primaryGradient.createShader(bounds),
-          child: Text(
-            'Messages',
-            style: AuraTypography.headlineMedium.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        title: _isEditing
+            ? Text(
+                _selectedConversationIds.isEmpty
+                    ? 'Chọn đoạn chat'
+                    : 'Đã chọn ${_selectedConversationIds.length}',
+                style: AuraTypography.titleLarge.copyWith(
+                  color: AuraColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : ShaderMask(
+                shaderCallback: (bounds) =>
+                    AuraColors.primaryGradient.createShader(bounds),
+                child: Text(
+                  'Messages',
+                  style: AuraTypography.headlineMedium.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
         actions: [
+          if (_isEditing && _selectedConversationIds.isNotEmpty)
+            IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AuraColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                  color: AuraColors.error,
+                ),
+              ),
+              onPressed: _deleteSelectedConversations,
+            ),
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AuraColors.primary.withValues(alpha: 0.1),
+                color: _isEditing
+                    ? AuraColors.primary.withValues(alpha: 0.15)
+                    : AuraColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.edit_rounded, size: 18),
+              child: Icon(
+                _isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                size: 18,
+                color: AuraColors.primary,
+              ),
             ),
-            onPressed: () => context.push('/search'),
+            onPressed: () {
+              setState(() {
+                _isEditing = !_isEditing;
+                if (!_isEditing) {
+                  _selectedConversationIds.clear();
+                }
+              });
+            },
           ),
           const SizedBox(width: 4),
         ],
@@ -310,8 +500,20 @@ class _ConversationsListScreenState
                               child: _ConversationTile(
                                 conversation: conv,
                                 currentUserId: currentUserId,
+                                isEditing: _isEditing,
+                                isSelected: _selectedConversationIds.contains(conv.id),
                                 onTap: () {
-                                  context.push('/chat/${conv.id}');
+                                  if (_isEditing) {
+                                    setState(() {
+                                      if (_selectedConversationIds.contains(conv.id)) {
+                                        _selectedConversationIds.remove(conv.id);
+                                      } else {
+                                        _selectedConversationIds.add(conv.id);
+                                      }
+                                    });
+                                  } else {
+                                    context.push('/chat/${conv.id}');
+                                  }
                                 },
                               ).animate().fadeIn(
                                     duration: 300.ms,
@@ -504,11 +706,15 @@ class _ConversationTile extends StatelessWidget {
     required this.conversation,
     required this.currentUserId,
     required this.onTap,
+    this.isEditing = false,
+    this.isSelected = false,
   });
 
   final ConversationModel conversation;
   final String currentUserId;
   final VoidCallback onTap;
+  final bool isEditing;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -521,6 +727,16 @@ class _ConversationTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
+            if (isEditing) ...[
+              Icon(
+                isSelected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: isSelected ? AuraColors.primary : AuraColors.textTertiary,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+            ],
             // ── Avatar with Aura Ring + Online Dot ──
             Stack(
               children: [

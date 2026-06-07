@@ -878,6 +878,8 @@ final router = GoRouter(
 - **Like/Reaction**: Emoji scales up 1.2x → bounces → returns (200ms)
 - **Post appear**: Slide up + fade in (300ms stagger 50ms)
 - **Break card appear**: Slow fade in over 500ms (non-jarring)
+- **Repost Button (Prototype/Fake)**: 
+  - Thêm nút "Repost" ngay trên Wave Card. Khi nhấn, phát rung nhẹ (`HapticFeedback.lightImpact()`) và hiển thị SnackBar thông báo *"Đã chia sẻ Wave này lên trang cá nhân!"* sử dụng màu sắc chủ đạo của cảm xúc Wave đó làm nền.
 
 ### 6.3 Wave Interactions
 - **Join wave**: Ripple effect from tap point
@@ -888,6 +890,9 @@ final router = GoRouter(
 - **Card reveal**: 3D flip animation (400ms)
 - **Score reveal**: Count-up animation for soul score (800ms)
 - **Connect success**: Dual Aura Rings merge animation + confetti burst
+- **Demo Mode Matching Bypass**:
+  - Khi vuốt phải hoặc nhấn "Connect" (Accept), hệ thống gọi trực tiếp `getOrCreateConversation` trong `ChatService` để tự động tạo một phòng chat trống giữa người dùng hiện tại và ID của bot (ví dụ: `user-minh-anh`).
+  - Phục vụ demo bằng cơ chế **Local Metadata Fallback** trong `ChatService.getUserInfo` để điền trước thông tin (Display name, Avatar, Aura Dominant, Emotion Vector) của 5 tài khoản bot, giúp hiển thị vòng Aura và tên chính xác trên Tab Chat mà không cần truy vấn Firestore.
 
 ### 6.5 Navigation
 - **Tab switch**: Cross-fade (200ms)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/emotion_gradients.dart';
@@ -136,7 +137,7 @@ class WaveCard extends StatelessWidget {
             // ── Action Row ──
             Row(
               children: [
-                // Message count
+                // Message count and Repost button
                 Row(
                   children: [
                     Icon(Icons.chat_bubble_outline_rounded,
@@ -146,6 +147,41 @@ class WaveCard extends StatelessWidget {
                       '${wave.messageCount}',
                       style: AuraTypography.bodySmall.copyWith(
                         color: AuraColors.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                const Icon(Icons.check_circle_outline, color: Colors.white),
+                                const SizedBox(width: 8),
+                                const Text('Đã chia sẻ Wave này lên trang cá nhân!'),
+                              ],
+                            ),
+                            backgroundColor: emotionColor,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Icon(Icons.repeat_rounded,
+                              size: 16, color: AuraColors.textTertiary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Repost',
+                            style: AuraTypography.bodySmall.copyWith(
+                              color: AuraColors.textTertiary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

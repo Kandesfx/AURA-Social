@@ -110,8 +110,8 @@ async def get_soul_suggestions(
             # Compute score
             res = soul_engine.calculate_soul_score(user_profile, other)
             
-            # Filter matches with a score above a baseline (e.g. 0.55) to ensure quality matches
-            if res['soul_score'] >= 0.55:
+            # Filter matches with a score above a baseline (set to 0.0 to ensure all users are suggested, e.g. as 'New Connection')
+            if res['soul_score'] >= 0.0:
                 # Map Plutchik vector keys to floats
                 emo_vector = other['current_emotion_vector']
                 dominant = other.get('author_dominant_emotion', 'explore')

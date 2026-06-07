@@ -30,10 +30,9 @@ class DeepRecommendationPipeline:
         db = get_firestore()
 
         try:
-            # Query Firestore for active posts
+            # Query Firestore for active posts (without order_by to avoid composite index error)
             posts_ref = db.collection('posts')\
                 .where('status', '==', 'active')\
-                .order_by('created_at', direction='DESCENDING')\
                 .limit(100)
             
             docs = posts_ref.stream()
@@ -41,6 +40,17 @@ class DeepRecommendationPipeline:
                 post_data = doc.to_dict()
                 post_data['post_id'] = doc.id
                 candidates.append(post_data)
+            
+            # Sort in-memory by created_at DESC (safe conversion of timezone-aware datetimes)
+            def get_created_at(x):
+                ca = x.get('created_at')
+                if ca is None:
+                    return datetime.min.replace(tzinfo=timezone.utc)
+                if hasattr(ca, 'tzinfo') and ca.tzinfo is None:
+                    return ca.replace(tzinfo=timezone.utc)
+                return ca
+            
+            candidates.sort(key=get_created_at, reverse=True)
         except Exception as e:
             print(f"⚠️ Error fetching posts from Firestore: {e}")
 

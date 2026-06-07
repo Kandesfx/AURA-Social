@@ -15,6 +15,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "736756685022-k8ao3go2had5h09t7nqfomudqj5ps8hk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aurasocial.app",
+            "certificate_hash": "91753be09c1ca431f7cb802df46aa54c7df2f518"
+          }
+        },
+        {
+          "client_id": "736756685022-ossn1u64nsqbh3bd8tjjrf1b3clpethd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aurasocial.app",
+            "certificate_hash": "aa9d19b00c874dd5b486093e9b55cf30aea8bda0"
+          }
+        },
+        {
           "client_id": "736756685022-l9ti22fp694amc23p4k0bra62pc0bhup.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -30,6 +46,13 @@
             {
               "client_id": "736756685022-l9ti22fp694amc23p4k0bra62pc0bhup.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "736756685022-0pe71pmm15o87ofijbtbpfc4rjkeisj2.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aurasocial.app"
+              }
             }
           ]
         }

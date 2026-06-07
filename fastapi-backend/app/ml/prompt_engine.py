@@ -6,7 +6,6 @@ Integrates Google Gemini 1.5 Flash with fallback to local rule-based templates.
 import json
 import re
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
 from app.config import get_settings
 
 ICEBREAKERS = {
@@ -66,16 +65,31 @@ class PromptEngine:
     Uses Google Gemini API when available, otherwise falls back to local database.
     """
 
-    def _get_gemini_model(self) -> Optional[genai.GenerativeModel]:
-        """Initialize and return Gemini model if key is configured."""
+    def _get_gemini_model(self) -> Optional[Any]:
+        """Initialize and return Gemini model if key is configured (AI Studio) or via Vertex AI."""
         settings = get_settings()
-        if not settings.gemini_api_key:
-            return None
+        
+        # 1. Try AI Studio if API key is provided
+        if settings.gemini_api_key:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=settings.gemini_api_key)
+                return genai.GenerativeModel('gemini-2.0-flash')
+            except Exception as e:
+                print(f"⚠️ PromptEngine: Failed to configure AI Studio client: {e}")
+                
+        # 2. Otherwise, try Vertex AI (runs on Cloud Run with Service Account)
         try:
-            genai.configure(api_key=settings.gemini_api_key)
-            return genai.GenerativeModel('gemini-2.0-flash')
+            import vertexai
+            from vertexai.generative_models import GenerativeModel
+            
+            # Initialize Vertex AI. Location is set to asia-east1 (same as Cloud Run)
+            vertexai.init(project="aura-social-vn", location="asia-east1")
+            
+            # Vertex AI Gemini model name
+            return GenerativeModel("gemini-2.0-flash")
         except Exception as e:
-            print(f"⚠️ PromptEngine: Failed to configure Gemini API client: {e}")
+            print(f"⚠️ PromptEngine: Failed to configure Vertex AI client: {e}")
             return None
 
     def _parse_gemini_json_list(self, text: str) -> Optional[List[str]]:

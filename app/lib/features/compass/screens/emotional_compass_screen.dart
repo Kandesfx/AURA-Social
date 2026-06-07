@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/aura_ring_widget.dart';
 import '../widgets/emotion_radar_chart.dart';
 import '../widgets/emotion_timeline.dart';
 import '../widgets/ai_insight_card.dart';
-
-/// AURA Social – Emotional Compass Screen
-///
-/// Person 4, Task #12
-/// Full emotional profile view: radar chart, 7-day timeline, AI insights.
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/emotion_profile_provider.dart';
+import '../../../shared/models/emotion_profile_model.dart';
 import '../../../services/wellbeing_service.dart';
 
 /// AURA Social – Emotional Compass Screen
@@ -25,10 +22,11 @@ class EmotionalCompassScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reportAsync = ref.watch(weeklyReportProvider);
+    final emotionProfileAsync = ref.watch(currentEmotionProfileProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emotional Compass'),
+        title: const Text('La bàn cảm xúc'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
           onPressed: () => Navigator.of(context).pop(),
@@ -40,6 +38,7 @@ class EmotionalCompassScreen extends ConsumerWidget {
           ),
         ],
       ),
+<<<<<<< HEAD
       body: reportAsync.when(
         loading: () => Center(
           child: CircularProgressIndicator(color: AuraColors.primary),
@@ -70,6 +69,7 @@ class EmotionalCompassScreen extends ConsumerWidget {
           ),
         ),
         data: (report) {
+          final profile = emotionProfileAsync.valueOrNull ?? const EmotionProfileModel();
           final rawDistribution = report['mood_distribution'];
           final emotionVector = rawDistribution is Map
               ? Map<String, dynamic>.from(rawDistribution).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))
@@ -90,7 +90,7 @@ class EmotionalCompassScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
 
                 // ── Current Mood Header ──
-                _buildMoodHeader(emotionVector, dominant, stabilityLabel, stabilityIndex)
+                _buildMoodHeader(profile, emotionVector, dominant, stabilityLabel, stabilityIndex)
                     .animate().fadeIn(duration: 500.ms).slideY(begin: -0.05),
 
                 const SizedBox(height: 24),
@@ -109,7 +109,7 @@ class EmotionalCompassScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // ── 7-Day Timeline ──
-                _buildTimelineSection()
+                _buildTimelineSection(profile)
                     .animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.05),
 
                 const SizedBox(height: 24),
@@ -206,7 +206,7 @@ class EmotionalCompassScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMoodHeader(Map<String, double> emotionVector, String dominant, String stabilityLabel, double stabilityIndex) {
+  Widget _buildMoodHeader(EmotionProfileModel profile, Map<String, double> emotionVector, String dominant, String stabilityLabel, double stabilityIndex) {
     final dominantColor = AuraColors.getEmotionColor(dominant);
 
     // Calculate valence: positive emotions minus negative emotions
@@ -239,6 +239,8 @@ class EmotionalCompassScreen extends ConsumerWidget {
           AuraRing(
             size: 60,
             emotionVector: emotionVector,
+            confidence: profile.emotionConfidence,
+            arousal: profile.arousal,
             glowIntensity: 0.5,
           ),
           const SizedBox(width: 14),
@@ -400,7 +402,7 @@ class EmotionalCompassScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTimelineSection() {
+  Widget _buildTimelineSection(EmotionProfileModel profile) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -422,7 +424,7 @@ class EmotionalCompassScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const EmotionTimeline(height: 200),
+          EmotionTimeline(height: 200, weeklyPattern: profile.weeklyPattern),
         ],
       ),
     );

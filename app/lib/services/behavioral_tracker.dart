@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 /// AURA Social – Behavioral Tracker Service
 ///
@@ -168,6 +169,16 @@ class BehavioralTracker {
   /// Flush tất cả events trong queue lên Firestore
   Future<void> _flush() async {
     if (_eventQueue.isEmpty) return;
+
+    try {
+      if (Firebase.apps.isEmpty) {
+        _eventQueue.clear();
+        return;
+      }
+    } catch (_) {
+      _eventQueue.clear();
+      return;
+    }
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;

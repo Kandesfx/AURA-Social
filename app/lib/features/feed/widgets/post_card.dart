@@ -8,6 +8,7 @@ import '../../../shared/widgets/aura_ring_widget.dart';
 import '../../../shared/widgets/aura_parsed_text.dart';
 import '../models/post_model.dart';
 import 'emotion_reaction_bar.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -29,7 +30,7 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Kiểm tra tác giả bài viết
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = Firebase.apps.isEmpty ? null : FirebaseAuth.instance.currentUser;
     final isAuthor = currentUser != null && currentUser.uid == post.userId;
 
     // Tạo emotion vector cho AuraRing từ author's dominant emotion

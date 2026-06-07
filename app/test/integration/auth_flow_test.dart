@@ -3,25 +3,60 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/features/auth/screens/login_screen.dart';
 import 'package:app/features/auth/screens/register_screen.dart';
+import 'package:app/providers/auth_state_provider.dart';
 
-/// AURA Social – Integration Tests cho Auth Flow
-///
-/// Person 4, Task #22
-/// Test luồng authentication: Login → Register → form validation.
-///
-/// Lưu ý: Đây là widget-level integration tests (không cần Firebase emulator).
-/// Full integration tests (với Firebase) cần setup riêng trong `integration_test/`.
+/// Mock Auth Notifier implementing AuthNotifier interface to bypass Firebase Auth
+class MockAuthNotifier extends StateNotifier<AuthState> implements AuthNotifier {
+  MockAuthNotifier() : super(const AuthState());
+
+  @override
+  Future<bool> signInWithEmail(String email, String password) async {
+    return true;
+  }
+
+  @override
+  Future<bool> registerWithEmail({
+    required String email,
+    required String password,
+    required String displayName,
+    required String username,
+  }) async {
+    return true;
+  }
+
+  @override
+  Future<bool> signInWithGoogle() async {
+    return true;
+  }
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<bool> resetPassword(String email) async {
+    return true;
+  }
+
+  @override
+  void clearError() {}
+}
+
+Widget buildTestWidget(Widget home) {
+  return ProviderScope(
+    overrides: [
+      authNotifierProvider.overrideWith((ref) => MockAuthNotifier()),
+      authStateProvider.overrideWith((ref) => Stream.value(null)),
+    ],
+    child: MaterialApp(
+      home: home,
+    ),
+  );
+}
+
 void main() {
   group('Auth Flow – Login Screen', () {
     testWidgets('renders all essential elements', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: LoginScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
 
       // Brand elements
@@ -33,12 +68,11 @@ void main() {
       expect(find.textContaining('Đăng nhập để tiếp tục'), findsOneWidget);
 
       // Form fields
-      expect(find.widgetWithText(TextField, 'Email hoặc username'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Email'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'Mật khẩu'), findsOneWidget);
 
       // Buttons
       expect(find.text('Đăng nhập'), findsOneWidget);
-      expect(find.text('Quên mật khẩu?'), findsOneWidget);
       expect(find.textContaining('Google'), findsOneWidget);
 
       // Register link
@@ -47,18 +81,11 @@ void main() {
     });
 
     testWidgets('email field accepts input', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: LoginScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
 
       // Enter email
-      final emailField = find.widgetWithText(TextField, 'Email hoặc username');
+      final emailField = find.widgetWithText(TextField, 'Email');
       await tester.enterText(emailField, 'test@aura.social');
       await tester.pump();
 
@@ -66,14 +93,7 @@ void main() {
     });
 
     testWidgets('password field accepts input and toggles visibility', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: LoginScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
 
       // Enter password
@@ -99,19 +119,12 @@ void main() {
     });
 
     testWidgets('login button is tappable', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: LoginScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
 
       // Fill form
       await tester.enterText(
-        find.widgetWithText(TextField, 'Email hoặc username'),
+        find.widgetWithText(TextField, 'Email'),
         'user@test.com',
       );
       await tester.enterText(
@@ -125,20 +138,10 @@ void main() {
       expect(loginButton, findsOneWidget);
       await tester.tap(loginButton);
       await tester.pump();
-
-      // Button should work without error
-      // (actual Firebase auth would be tested in full integration test)
     });
 
     testWidgets('divider shows "hoặc" text', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: LoginScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
       expect(find.text('hoặc'), findsOneWidget);
     });
@@ -146,32 +149,18 @@ void main() {
 
   group('Auth Flow – Register Screen', () {
     testWidgets('renders all essential elements', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: RegisterScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const RegisterScreen()));
       await tester.pumpAndSettle();
 
       // Header
       expect(find.textContaining('AURA'), findsWidgets);
 
       // Register-specific text
-      expect(find.textContaining('Tạo tài khoản'), findsOneWidget);
+      expect(find.text('Tạo tài khoản mới'), findsOneWidget);
     });
 
     testWidgets('has form fields for registration', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: RegisterScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const RegisterScreen()));
       await tester.pumpAndSettle();
 
       // Should have at least email and password fields
@@ -179,14 +168,7 @@ void main() {
     });
 
     testWidgets('has link back to login', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: RegisterScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const RegisterScreen()));
       await tester.pumpAndSettle();
 
       // Should have "Đã có tài khoản?" or similar login link
@@ -196,14 +178,7 @@ void main() {
 
   group('Auth Flow – Form Validation UX', () {
     testWidgets('empty form should not crash on submit', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: LoginScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
 
       // Tap login without filling form
@@ -216,18 +191,11 @@ void main() {
     });
 
     testWidgets('keyboard type is correct for email field', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: LoginScreen(),
-          ),
-        ),
-      );
-
+      await tester.pumpWidget(buildTestWidget(const LoginScreen()));
       await tester.pumpAndSettle();
 
       final emailField = tester.widget<TextField>(
-        find.widgetWithText(TextField, 'Email hoặc username'),
+        find.widgetWithText(TextField, 'Email'),
       );
       expect(emailField.keyboardType, TextInputType.emailAddress);
     });

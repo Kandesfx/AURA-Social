@@ -150,15 +150,15 @@ class ProfileScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 Text(
-                                  '🎯 Anticipation',
+                                  '${_getEmoji(emotion?.dominantEmotion ?? 'explore')} ${_capitalize(emotion?.dominantEmotion ?? 'explore')}',
                                   style: AuraTypography.bodySmall.copyWith(
-                                    color: AuraColors.emotionAnticipation,
+                                    color: AuraColors.getEmotionColor(emotion?.dominantEmotion ?? 'explore'),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  '📊 78%',
+                                  '📊 ${( (emotion?.emotionConfidence ?? 0.5) * 100 ).round()}%',
                                   style: AuraTypography.bodySmall.copyWith(
                                     color: AuraColors.textSecondary,
                                   ),
@@ -176,6 +176,70 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ),
               ).animate().fadeIn(delay: 200.ms, duration: 400.ms)
+               .slideX(begin: 0.03),
+
+              const SizedBox(height: 12),
+
+              // ── Wellbeing Tracker Card ──
+              GestureDetector(
+                onTap: () => context.push('/wellbeing'),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AuraColors.success.withValues(alpha: 0.08),
+                        AuraColors.secondary.withValues(alpha: 0.04),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AuraColors.success.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AuraColors.success.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text('🧘', style: TextStyle(fontSize: 24)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Theo dõi sức khỏe tinh thần',
+                              style: AuraTypography.titleSmall.copyWith(
+                                color: AuraColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Nhịp thở, gợi ý nghỉ ngơi & hỗ trợ khẩn cấp',
+                              style: AuraTypography.bodySmall.copyWith(
+                                color: AuraColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: AuraColors.textTertiary,
+                      ),
+                    ],
+                  ),
+                ),
+              ).animate().fadeIn(delay: 250.ms, duration: 400.ms)
                .slideX(begin: 0.03),
 
               const SizedBox(height: 20),
@@ -217,6 +281,16 @@ class ProfileScreen extends ConsumerWidget {
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
     return n.toString();
   }
+
+  static String _getEmoji(String emotion) {
+    const map = {
+      'joy': '😊', 'trust': '🤝', 'anticipation': '🎯', 'surprise': '😮',
+      'sadness': '😢', 'fear': '😰', 'anger': '😠', 'disgust': '🤢',
+    };
+    return map[emotion] ?? '🧭';
+  }
+
+  static String _capitalize(String s) => s.isEmpty ? '' : s[0].toUpperCase() + s.substring(1);
 }
 
 /// Emotional Compass card – hiển thị dominant emotion + confidence + mode

@@ -38,6 +38,8 @@ void main() {
 
   group('ShimmerFeedLoading', () {
     testWidgets('renders correct number of shimmer cards', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -48,9 +50,13 @@ void main() {
 
       expect(find.byType(ShimmerFeedLoading), findsOneWidget);
       expect(find.byType(ShimmerPostCard), findsNWidgets(3));
+      
+      await tester.binding.setSurfaceSize(null);
     });
 
     testWidgets('default itemCount is 3', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -60,6 +66,8 @@ void main() {
       );
 
       expect(find.byType(ShimmerPostCard), findsNWidgets(3));
+      
+      await tester.binding.setSurfaceSize(null);
     });
   });
 

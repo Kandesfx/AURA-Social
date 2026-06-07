@@ -2,12 +2,33 @@
 AURA Social – Cloudflare R2 Storage Service
 S3-compatible object storage for avatars, post images, etc.
 """
+import asyncio
+import logging
 import boto3
 from botocore.config import Config as BotoConfig
 from fastapi import UploadFile
 from typing import Optional
 import uuid
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+def _get_accessible_base_url(request=None) -> str:
+    """
+    Build an accessible base URL from the incoming request.
+    
+    Replaces host bindings like 0.0.0.0 that are unreachable from
+    client devices with 10.0.2.2 (Android emulator → host machine).
+    For physical devices, set API_URL to the machine's LAN IP.
+    """
+    if request:
+        base_url = str(request.base_url).rstrip("/")
+        # 0.0.0.0 is the server bind address – not reachable from clients
+        base_url = base_url.replace("://0.0.0.0:", "://10.0.2.2:")
+        base_url = base_url.replace("://0.0.0.0", "://10.0.2.2")
+        return base_url
+    return "http://10.0.2.2:8080"
 
 
 class R2StorageService:
@@ -73,13 +94,22 @@ class R2StorageService:
         content = await file.read()
 
         if self.is_r2_configured:
-            # Upload to R2
-            self.client.put_object(
-                Bucket=self.bucket_name,
-                Key=key,
-                Body=content,
-                ContentType=file.content_type or "application/octet-stream",
-            )
+            # Upload to R2 using executor (put_object is synchronous/blocking)
+            try:
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(
+                    None,
+                    lambda: self.client.put_object(
+                        Bucket=self.bucket_name,
+                        Key=key,
+                        Body=content,
+                        ContentType=file.content_type or "application/octet-stream",
+                    ),
+                )
+                logger.info(f"✅ R2 upload success: {key} ({len(content)} bytes)")
+            except Exception as e:
+                logger.error(f"❌ R2 upload failed for {key}: {e}")
+                raise
             # Return public URL
             return f"{self.public_url}/{key}"
         else:
@@ -92,12 +122,9 @@ class R2StorageService:
             with open(target_path, "wb") as f:
                 f.write(content)
 
-            # Return dynamic local url based on incoming request, fallback to emulator address
-            if request:
-                base_url = str(request.base_url).rstrip("/")
-                return f"{base_url}/static/{key}"
-            else:
-                return f"http://10.0.2.2:8080/static/{key}"
+            # Return accessible local URL based on incoming request
+            base_url = _get_accessible_base_url(request)
+            return f"{base_url}/static/{key}"
 
     async def delete_file(self, file_url: str) -> bool:
         """Delete a file from R2 or local storage by its URL."""

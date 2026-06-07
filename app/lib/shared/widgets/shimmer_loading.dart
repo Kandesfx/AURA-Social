@@ -154,6 +154,7 @@ class ShimmerFeedLoading extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.only(top: 8, bottom: 100),
       itemCount: itemCount,
+      cacheExtent: 2000,
       itemBuilder: (context, index) {
         return ShimmerPostCard(hasImage: index % 2 == 0);
       },

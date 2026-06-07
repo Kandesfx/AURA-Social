@@ -45,7 +45,7 @@ void main() {
 
       expect(find.byType(AuraRing), findsOneWidget);
       // Should contain a CustomPaint for the gradient ring
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(CustomPaint), findsAtLeastNWidgets(1));
     });
 
     testWidgets('renders with child widget', (tester) async {

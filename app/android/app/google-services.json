@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "688690058458",
+    "project_id": "aura-social-5f3ca",
+    "storage_bucket": "aura-social-5f3ca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:688690058458:android:b4ad16efce4bd0b8be81e3",
+        "android_client_info": {
+          "package_name": "com.aurasocial.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "688690058458-mq1dr73htieio85dpslcceqkj7oa9rh7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aurasocial.app",
+            "certificate_hash": "ce887a202438eaac536d3d0545fe2b3c0345118f"
+          }
+        },
+        {
+          "client_id": "688690058458-6479ad5lmghgstaql847t6rlo7i8uo6f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBil23tljTNKz9u8eyfCVlq4_2965YnqTs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "688690058458-6479ad5lmghgstaql847t6rlo7i8uo6f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

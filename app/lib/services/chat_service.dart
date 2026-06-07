@@ -127,6 +127,18 @@ class ChatService {
         .update({'unread_counts.$userId': 0});
   }
 
+  /// Xóa cuộc trò chuyện khỏi Firestore và RTDB (messages + typing).
+  Future<void> deleteConversation(String conversationId) async {
+    // 1. Xóa metadata cuộc trò chuyện trên Firestore
+    await _firestore.collection('conversations').doc(conversationId).delete();
+
+    // 2. Xóa các tin nhắn tương ứng trên RTDB
+    await _database.ref('messages/$conversationId').remove();
+
+    // 3. Xóa trạng thái soạn tin của bản thân trên RTDB (tránh Permission Denied từ Security Rules)
+    await _database.ref('typing/$conversationId/$_uid').remove();
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // MESSAGES (RTDB)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -3,6 +3,33 @@
 > File này ghi lại tất cả thay đổi quan trọng theo thời gian.  
 > Thành viên nên đọc phần mới nhất mỗi khi `git pull`.
 
+
+## [07/06/2026] – Sửa lỗi xóa chat & Thêm chức năng sửa/xóa bài viết
+
+### ⚠️ Thành viên cần làm sau khi pull:
+1. Cập nhật **Firestore Rules** trên Firebase Console để cho phép hành động `delete` đối với cuộc trò chuyện bởi thành viên tham gia (xem hướng dẫn ở mục 3 dưới đây).
+
+### ✅ Đã thêm:
+- **Chức năng sửa bài viết (Post)**: 
+  - Người dùng có thể nhấn vào nút ba chấm trên `PostCard` hoặc trong trang chi tiết bài viết, chọn "Chỉnh sửa bài viết".
+  - Màn hình chỉnh sửa sẽ được điền sẵn nội dung cũ và hiển thị ảnh cũ (tải từ R2 qua `CachedNetworkImage`).
+- **Chức năng xóa bài viết (Post)**:
+  - Cho phép người dùng xóa bài viết của mình, tự động cập nhật giảm số lượng `posts_count` của người dùng đó.
+  - Tự động quay về trang trước (`pop`) khi bài viết bị xóa từ màn hình chi tiết bài viết.
+
+### 🐛 Đã sửa:
+- **Lỗi xóa chat không cập nhật**: 
+  - Sửa `firestore.rules` để cấp quyền xóa cuộc trò chuyện.
+  - Chuyển `onDismissed` trong `conversations_list_screen.dart` sang chế độ bất đồng bộ (`async`/`await`) và bắt lỗi ngoại lệ khi hành động xóa gặp sự cố.
+
+### 🔧 Thay đổi kỹ thuật:
+- `firebase/firestore.rules`: Cập nhật quyền `delete` cho `conversations`.
+- `conversations_list_screen.dart`: Chuyển xử lý `onDismissed` thành `async` và thêm `try-catch`.
+- `app_router.dart`: Cập nhật route `/create-post` để nhận tham số `extra` kiểu `PostModel`.
+- `create_post_screen.dart`: Thêm thuộc tính `postToEdit` và thay đổi logic lưu cập nhật bài viết hiện có.
+- `post_card.dart`: Thêm menu ba chấm (Edit/Delete) cho bài viết của chính chủ.
+- `post_detail_screen.dart`: Thêm menu ba chấm cho chính chủ và logic tự động pop khi post bị xóa.
+
 ---
 
 ## [18/05/2026] – Sửa lỗi biên dịch & Tích hợp Google Sign-In

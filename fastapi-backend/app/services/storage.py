@@ -18,30 +18,48 @@ class R2StorageService:
         self.bucket_name = settings.r2_bucket_name
         self.public_url = settings.r2_public_url
 
-        self.client = boto3.client(
-            "s3",
-            endpoint_url=f"https://{settings.r2_account_id}.r2.cloudflarestorage.com",
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            config=BotoConfig(
-                signature_version="s3v4",
-                region_name="auto",
-            ),
-        )
+        # Check if R2 is configured correctly
+        self.is_r2_configured = True
+        if not settings.r2_account_id or settings.r2_account_id in ("", "your_cloudflare_account_id"):
+            self.is_r2_configured = False
+        if not settings.r2_access_key_id or settings.r2_access_key_id in ("", "your_r2_access_key"):
+            self.is_r2_configured = False
+        if not settings.r2_secret_access_key or settings.r2_secret_access_key in ("", "your_r2_secret_key"):
+            self.is_r2_configured = False
+
+        if self.is_r2_configured:
+            try:
+                self.client = boto3.client(
+                    "s3",
+                    endpoint_url=f"https://{settings.r2_account_id}.r2.cloudflarestorage.com",
+                    aws_access_key_id=settings.r2_access_key_id,
+                    aws_secret_access_key=settings.r2_secret_access_key,
+                    config=BotoConfig(
+                        signature_version="s3v4",
+                        region_name="auto",
+                    ),
+                )
+            except Exception as e:
+                print(f"⚠️ Failed to init boto3 client, falling back to local storage: {e}")
+                self.is_r2_configured = False
+        else:
+            print("⚠️ Cloudflare R2 is not fully configured. Using local storage fallback.")
 
     async def upload_file(
         self,
         file: UploadFile,
         folder: str = "uploads",
         custom_filename: Optional[str] = None,
+        request = None,
     ) -> str:
         """
-        Upload file to R2 and return public URL.
+        Upload file to R2 and return public URL. Fallback to local storage if R2 is not configured.
 
         Args:
             file: FastAPI UploadFile
             folder: Subfolder in bucket (e.g., 'avatars', 'posts')
             custom_filename: Optional custom filename
+            request: Optional FastAPI Request to build local URL
 
         Returns:
             Public URL of the uploaded file
@@ -54,37 +72,67 @@ class R2StorageService:
         # Read file content
         content = await file.read()
 
-        # Upload to R2
-        self.client.put_object(
-            Bucket=self.bucket_name,
-            Key=key,
-            Body=content,
-            ContentType=file.content_type or "application/octet-stream",
-        )
+        if self.is_r2_configured:
+            # Upload to R2
+            self.client.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=content,
+                ContentType=file.content_type or "application/octet-stream",
+            )
+            # Return public URL
+            return f"{self.public_url}/{key}"
+        else:
+            # Save file locally
+            import os
+            target_dir = os.path.join("static", folder)
+            os.makedirs(target_dir, exist_ok=True)
+            target_path = os.path.join(target_dir, filename)
 
-        # Return public URL
-        return f"{self.public_url}/{key}"
+            with open(target_path, "wb") as f:
+                f.write(content)
+
+            # Return dynamic local url based on incoming request, fallback to emulator address
+            if request:
+                base_url = str(request.base_url).rstrip("/")
+                return f"{base_url}/static/{key}"
+            else:
+                return f"http://10.0.2.2:8080/static/{key}"
 
     async def delete_file(self, file_url: str) -> bool:
-        """Delete a file from R2 by its URL."""
+        """Delete a file from R2 or local storage by its URL."""
         try:
-            # Extract key from URL
-            key = file_url.replace(f"{self.public_url}/", "")
-            self.client.delete_object(Bucket=self.bucket_name, Key=key)
-            return True
+            # Extract key from URL (strip query parameters first)
+            clean_url = file_url.split("?")[0]
+            
+            if self.is_r2_configured:
+                key = clean_url.replace(f"{self.public_url}/", "")
+                self.client.delete_object(Bucket=self.bucket_name, Key=key)
+                return True
+            else:
+                import os
+                if "/static/" in clean_url:
+                    key = clean_url.split("/static/")[-1]
+                    local_path = os.path.join("static", key)
+                    if os.path.exists(local_path):
+                        os.remove(local_path)
+                        return True
+                return False
         except Exception:
             return False
 
-    async def upload_avatar(self, user_id: str, file: UploadFile) -> str:
+    async def upload_avatar(self, user_id: str, file: UploadFile, request = None) -> str:
         """Upload user avatar. Overwrites existing."""
+        import time
         ext = file.filename.split(".")[-1] if file.filename else "jpg"
-        return await self.upload_file(
-            file, folder="avatars", custom_filename=f"{user_id}.{ext}"
+        url = await self.upload_file(
+            file, folder="avatars", custom_filename=f"{user_id}.{ext}", request=request
         )
+        return f"{url}?t={int(time.time())}"
 
-    async def upload_post_image(self, post_id: str, file: UploadFile) -> str:
+    async def upload_post_image(self, post_id: str, file: UploadFile, request = None) -> str:
         """Upload post image."""
-        return await self.upload_file(file, folder=f"posts/{post_id}")
+        return await self.upload_file(file, folder=f"posts/{post_id}", request=request)
 
 
 # Singleton instance

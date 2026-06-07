@@ -142,14 +142,22 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     : SizedBox(height: 44, child: _isFollowing
                       ? OutlinedButton(
                           onPressed: _togglingFollow ? null : _toggleFollow,
-                          style: OutlinedButton.styleFrom(side: BorderSide(color: AuraColors.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            side: BorderSide(color: AuraColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                           child: _togglingFollow
                             ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AuraColors.primary))
                             : Text('Đang follow', style: AuraTypography.labelLarge.copyWith(color: AuraColors.primary)),
                         )
                       : FilledButton(
                           onPressed: _togglingFollow ? null : _toggleFollow,
-                          style: FilledButton.styleFrom(backgroundColor: AuraColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            backgroundColor: AuraColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                           child: _togglingFollow
                             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : Text('Follow', style: AuraTypography.labelLarge.copyWith(color: Colors.white)),
@@ -161,7 +169,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     onPressed: () {}, // TODO: navigate to chat
                     icon: const Icon(Icons.chat_bubble_outline, size: 18),
                     label: const Text('Nhắn tin'),
-                    style: OutlinedButton.styleFrom(side: BorderSide(color: AuraColors.surfaceBorder), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      side: BorderSide(color: AuraColors.surfaceBorder),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   )),
                 ]),
               ),

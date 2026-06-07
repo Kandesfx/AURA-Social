@@ -112,8 +112,14 @@ class PostModel {
 
   /// Tạo PostModel từ mock Map data (FeedService mock).
   factory PostModel.fromMockMap(Map<String, dynamic> data) {
-    final emotionVector = data['emotionVector'] as Map<String, dynamic>? ?? {};
-    final reactions = data['reactions'] as Map<String, dynamic>? ?? {};
+    final rawEmotionVector = data['emotionVector'];
+    final emotionVector = rawEmotionVector is Map
+        ? Map<String, dynamic>.from(rawEmotionVector)
+        : <String, dynamic>{};
+    final rawReactions = data['reactions'];
+    final reactions = rawReactions is Map
+        ? Map<String, dynamic>.from(rawReactions)
+        : <String, dynamic>{};
     return PostModel(
       postId: data['id'] ?? '',
       userId: data['userId'] ?? '',

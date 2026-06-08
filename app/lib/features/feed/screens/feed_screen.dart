@@ -241,7 +241,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
                 ).animate(onPlay: (c) => c.repeat(reverse: true))
                  .shimmer(duration: 3000.ms, color: AuraColors.primary.withValues(alpha: 0.3)),
 
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+                // Search users
+                IconButton(
+                  icon: Icon(Icons.search_rounded, size: 24),
+                  tooltip: 'Tìm kiếm người dùng',
+                  onPressed: () => context.push('/search'),
+                ),
                 // Notifications
                 IconButton(
                   icon: Badge(

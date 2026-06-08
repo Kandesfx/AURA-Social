@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../providers/auth_state_provider.dart';
 
 /// AURA Social – Privacy Settings Screen
 ///
 /// Person 4, Task #11
 /// Data export, delete account, privacy consent toggles.
-class PrivacySettingsScreen extends StatelessWidget {
+class PrivacySettingsScreen extends ConsumerWidget {
   const PrivacySettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quyền riêng tư'),
@@ -64,7 +66,7 @@ class PrivacySettingsScreen extends StatelessWidget {
                 iconColor: AuraColors.error,
                 title: 'Xóa tài khoản',
                 subtitle: 'Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu',
-                onTap: () => _showDeleteAccountDialog(context),
+                onTap: () => _showDeleteAccountDialog(context, ref),
               ),
             ],
           ).animate().fadeIn(duration: 300.ms, delay: 100.ms),
@@ -232,7 +234,7 @@ class PrivacySettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showDeleteAccountDialog(BuildContext context) {
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -242,9 +244,48 @@ class PrivacySettingsScreen extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              // TODO: Implement GDPR cascade delete
+            onPressed: () async {
+              Navigator.pop(ctx); // Đóng dialog xác nhận
+              
+              // Hiển thị dialog loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (loadingCtx) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              final success = await ref.read(authNotifierProvider.notifier).deleteAccount();
+              
+              if (context.mounted) {
+                Navigator.pop(context); // Đóng dialog loading
+              }
+
+              if (success) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã xóa tài khoản vĩnh viễn.')),
+                  );
+                }
+              } else {
+                if (context.mounted) {
+                  final error = ref.read(authNotifierProvider).error ?? 'Đã xảy ra lỗi khi xóa tài khoản';
+                  showDialog(
+                    context: context,
+                    builder: (errCtx) => AlertDialog(
+                      title: const Text('Lỗi'),
+                      content: Text(error),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(errCtx),
+                          child: const Text('Đồng ý'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AuraColors.error),
             child: const Text('Xóa vĩnh viễn'),

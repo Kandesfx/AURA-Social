@@ -41,8 +41,8 @@ service cloud.firestore {
                             .changedKeys()
                             .hasOnly(['followers_count', 'following_count']));
 
-      // Không ai được xóa user (chỉ Cloud Function xử lý)
-      allow delete: if false;
+      // Cho phép chính chủ tự xóa tài khoản của mình
+      allow delete: if isOwner(userId);
 
       // ── Subcollection: Emotion Profile ──
       match /emotion_profile/{docId} {
@@ -62,16 +62,20 @@ service cloud.firestore {
       match /followers/{followerId} {
         // Ai đăng nhập cũng đọc được danh sách followers (public)
         allow read: if isAuthenticated();
-        // Chỉ người follow (followerId) mới ghi (tạo/xóa khi follow/unfollow)
-        allow write: if isOwner(followerId);
+        // Chỉ người follow (followerId) mới được tạo/sửa
+        allow create, update: if isOwner(followerId);
+        // Người follow (followerId) hoặc chủ profile (userId) được phép xóa (khi kick follower hoặc xóa tài khoản)
+        allow delete: if isOwner(followerId) || isOwner(userId);
       }
 
       // ── Subcollection: Following ──
       match /following/{targetUserId} {
         // Ai đăng nhập cũng đọc được danh sách following (public)
         allow read: if isAuthenticated();
-        // Chỉ chính chủ mới ghi (tạo/xóa khi follow/unfollow)
-        allow write: if isOwner(userId);
+        // Chỉ chính chủ (userId) mới được tạo/sửa
+        allow create, update: if isOwner(userId);
+        // Chính chủ (userId) hoặc người được follow (targetUserId) được phép xóa (khi targetUserId xóa tài khoản)
+        allow delete: if isOwner(userId) || isOwner(targetUserId);
       }
 
       // ── Subcollection: Feed Cache ──
@@ -118,10 +122,8 @@ service cloud.firestore {
       }
     }
 
-    // ════════════════════════════════════════════
-    // COMMENTS
-    // ════════════════════════════════════════════
-    match /comments/{commentId} {
+    // 使用 {path=**} để cho phép Collection Group Query tìm và xóa các comments của user
+    match /{path=**}/comments/{commentId} {
       allow read: if isAuthenticated();
 
       allow create: if isAuthenticated()
@@ -191,6 +193,13 @@ service cloud.firestore {
         allow write: if isAuthenticated()
                      && request.auth.uid == memberId;
       }
+    }
+
+    // Cấu hình hỗ trợ Collection Group Query cho Wave Members khi xóa tài khoản
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated()
+                   && request.auth.uid == memberId;
     }
 
     // ════════════════════════════════════════════

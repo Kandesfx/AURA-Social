@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -249,6 +250,184 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } on FirebaseAuthException catch (e) {
       state = AuthState(error: _mapAuthError(e.code));
+      return false;
+    }
+  }
+
+  /// Xóa tài khoản vĩnh viễn (GDPR Cascade Delete)
+  Future<bool> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      state = const AuthState(error: 'Không tìm thấy người dùng hiện tại');
+      return false;
+    }
+    final uid = user.uid;
+    state = const AuthState(isLoading: true);
+    try {
+      // 1. Xóa tất cả posts của user
+      debugPrint('[DeleteAccount] Bước 1: Bắt đầu xóa tất cả posts của user');
+      final postsQuery = await _firestore
+          .collection('posts')
+          .where('user_id', isEqualTo: uid)
+          .get();
+      for (final doc in postsQuery.docs) {
+        debugPrint('[DeleteAccount] Xóa post: ${doc.id}');
+        await doc.reference.delete();
+      }
+
+      // 2. Xóa các bình luận (comments) của user và cập nhật comments_count bài viết cha
+      debugPrint('[DeleteAccount] Bước 2: Bắt đầu xóa các comments của user');
+      final commentsQuery = await _firestore
+          .collectionGroup('comments')
+          .where('user_id', isEqualTo: uid)
+          .get();
+      for (final doc in commentsQuery.docs) {
+        debugPrint('[DeleteAccount] Xóa comment: ${doc.id}');
+        await doc.reference.delete();
+        final postRef = doc.reference.parent.parent;
+        if (postRef != null) {
+          debugPrint('[DeleteAccount] Cập nhật comments_count của post: ${postRef.id}');
+          await postRef.update({
+            'comments_count': FieldValue.increment(-1),
+          });
+        }
+      }
+
+      // 3. Giảm follow & xóa liên kết follow (following)
+      debugPrint('[DeleteAccount] Bước 3: Bắt đầu xóa liên kết following');
+      final followingQuery = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('following')
+          .get();
+      for (final doc in followingQuery.docs) {
+        final targetUid = doc.id;
+        debugPrint('[DeleteAccount] Xóa following: $targetUid');
+        await doc.reference.delete();
+        debugPrint('[DeleteAccount] Xóa follower của target $targetUid');
+        await _firestore
+            .collection('users')
+            .doc(targetUid)
+            .collection('followers')
+            .doc(uid)
+            .delete();
+        debugPrint('[DeleteAccount] Cập nhật followers_count của target $targetUid');
+        await _firestore.collection('users').doc(targetUid).update({
+          'followers_count': FieldValue.increment(-1),
+        });
+      }
+
+      // 4. Giảm follow & xóa liên kết follow (followers)
+      debugPrint('[DeleteAccount] Bước 4: Bắt đầu xóa liên kết followers');
+      final followersQuery = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('followers')
+          .get();
+      for (final doc in followersQuery.docs) {
+        final sourceUid = doc.id;
+        debugPrint('[DeleteAccount] Xóa follower: $sourceUid');
+        await doc.reference.delete();
+        debugPrint('[DeleteAccount] Xóa following của source $sourceUid');
+        await _firestore
+            .collection('users')
+            .doc(sourceUid)
+            .collection('following')
+            .doc(uid)
+            .delete();
+        debugPrint('[DeleteAccount] Cập nhật following_count của source $sourceUid');
+        await _firestore.collection('users').doc(sourceUid).update({
+          'following_count': FieldValue.increment(-1),
+        });
+      }
+
+      // 5. Xóa subcollection emotion_profile
+      debugPrint('[DeleteAccount] Bước 5: Bắt đầu xóa emotion_profile');
+      final emotionProfileQuery = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('emotion_profile')
+          .get();
+      for (final doc in emotionProfileQuery.docs) {
+        debugPrint('[DeleteAccount] Xóa emotion profile doc: ${doc.id}');
+        await doc.reference.delete();
+      }
+
+      // 6. Xóa subcollection behavioral_events
+      debugPrint('[DeleteAccount] Bước 6: Bắt đầu xóa behavioral_events');
+      final behavioralEventsQuery = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('behavioral_events')
+          .get();
+      for (final doc in behavioralEventsQuery.docs) {
+        debugPrint('[DeleteAccount] Xóa behavioral event doc: ${doc.id}');
+        await doc.reference.delete();
+      }
+
+      // 7. Xóa tư cách thành viên Wave
+      debugPrint('[DeleteAccount] Bước 7: Bắt đầu xóa tư cách thành viên Wave');
+      final waveMembersQuery = await _firestore
+          .collectionGroup('members')
+          .where('uid', isEqualTo: uid)
+          .get();
+      for (final doc in waveMembersQuery.docs) {
+        debugPrint('[DeleteAccount] Xóa thành viên wave: ${doc.id}');
+        await doc.reference.delete();
+        final waveRef = doc.reference.parent.parent;
+        if (waveRef != null) {
+          debugPrint('[DeleteAccount] Cập nhật member_count của wave: ${waveRef.id}');
+          await waveRef.update({
+            'member_count': FieldValue.increment(-1),
+          });
+        }
+      }
+
+      // 8. Dọn dẹp Realtime Database
+      debugPrint('[DeleteAccount] Bước 8: Bắt đầu dọn dẹp Realtime Database');
+      // - Xóa trạng thái online (presence)
+      await FirebaseDatabase.instance.ref('presence/$uid').remove();
+
+      // - Dọn dẹp trạng thái đang gõ chữ (typing) trong tất cả conversations
+      final conversationsQuery = await _firestore
+          .collection('conversations')
+          .where('participants', arrayContains: uid)
+          .get();
+      for (final doc in conversationsQuery.docs) {
+        final convId = doc.id;
+        debugPrint('[DeleteAccount] Xóa typing status trong conv: $convId');
+        await FirebaseDatabase.instance.ref('typing/$convId/$uid').remove();
+      }
+
+      // 9. Xóa user document chính trên Firestore
+      debugPrint('[DeleteAccount] Bước 9: Bắt đầu xóa user document chính');
+      await _firestore.collection('users').doc(uid).delete();
+
+      // 10. Đăng xuất Google Sign-In session
+      debugPrint('[DeleteAccount] Bước 10: Sign out Google');
+      await GoogleSignIn().signOut();
+
+      // 11. Xóa tài khoản Firebase Auth
+      debugPrint('[DeleteAccount] Bước 11: Xóa Firebase Auth user');
+      await user.delete();
+
+      debugPrint('[DeleteAccount] Hoàn tất xóa tài khoản thành công!');
+      state = const AuthState();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('[DeleteAccount] Lỗi FirebaseAuthException: ${e.code} - ${e.message}');
+      if (e.code == 'requires-recent-login') {
+        state = const AuthState(
+          error: 'Hành động này yêu cầu bạn đăng nhập lại gần đây để xác minh.',
+        );
+      } else {
+        state = AuthState(error: _mapAuthError(e.code));
+      }
+      return false;
+    } catch (e, stackTrace) {
+      debugPrint('[DeleteAccount] Lỗi không xác định: $e');
+      debugPrint('[DeleteAccount] StackTrace: $stackTrace');
+      state = AuthState(error: 'Lỗi khi xóa tài khoản: ${e.toString()}');
       return false;
     }
   }

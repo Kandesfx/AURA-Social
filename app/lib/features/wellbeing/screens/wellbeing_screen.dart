@@ -9,6 +9,7 @@ import '../../../shared/models/emotion_profile_model.dart';
 import '../widgets/break_card.dart';
 import '../widgets/crisis_resource_card.dart';
 import '../../compass/widgets/ai_insight_card.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 
 /// AURA Social – Wellbeing Screen (Theo dõi sức khỏe tinh thần)
 ///
@@ -51,7 +52,7 @@ class WellbeingScreen extends ConsumerWidget {
       ),
       body: emotionProfileAsync.when(
         data: (profile) => _buildContent(context, profile),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ShimmerCompassLoading(),
         error: (e, st) => _buildContent(context, const EmotionProfileModel()),
       ),
     );

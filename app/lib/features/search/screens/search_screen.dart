@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/models/user_model.dart';
 import '../widgets/user_tile.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 
 /// AURA Social – Search Screen
 ///
@@ -124,12 +125,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       ),
       body: usersAsync.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(
-            color: AuraColors.primary,
-            strokeWidth: 2,
-          ),
-        ),
+        loading: () => const ShimmerChatList(),
         error: (error, _) => _buildLoadError(error),
         data: (users) {
           final results = query.isEmpty
@@ -166,14 +162,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Khong the tai nguoi dung',
+              'Không thể tải dữ liệu tìm kiếm',
               style: AuraTypography.titleMedium.copyWith(
                 color: AuraColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              error.toString(),
+              'Vui lòng kiểm tra lại kết nối mạng và thử lại.',
               textAlign: TextAlign.center,
               style: AuraTypography.bodySmall.copyWith(
                 color: AuraColors.textTertiary,

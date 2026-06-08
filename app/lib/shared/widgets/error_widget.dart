@@ -23,6 +23,28 @@ class AuraErrorWidget extends StatelessWidget {
   /// Error message hiển thị
   final String message;
 
+  String get _friendlyMessage {
+    final lower = message.toLowerCase();
+    if (lower.contains('socketexception') ||
+        lower.contains('network') ||
+        lower.contains('connection') ||
+        lower.contains('dioexception') ||
+        lower.contains('http') ||
+        lower.contains('failed host lookup')) {
+      return 'Không thể kết nối máy chủ. Vui lòng kiểm tra lại kết nối mạng và thử lại.';
+    }
+    if (lower.contains('firebaseauth') || lower.contains('auth')) {
+      return 'Xác thực tài khoản thất bại. Vui lòng đăng nhập lại.';
+    }
+    if (lower.contains('permission-denied') || lower.contains('permission')) {
+      return 'Bạn không có quyền thực hiện thao tác này.';
+    }
+    if (message.contains('Exception') || message.contains('[') || message.contains(':')) {
+      return 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.';
+    }
+    return message;
+  }
+
   /// Callback khi tap nút "Thử lại"
   final VoidCallback? onRetry;
 
@@ -65,7 +87,7 @@ class AuraErrorWidget extends StatelessWidget {
 
             // Message
             Text(
-              message,
+              _friendlyMessage,
               style: AuraTypography.bodyMedium.copyWith(
                 color: AuraColors.textTertiary,
               ),

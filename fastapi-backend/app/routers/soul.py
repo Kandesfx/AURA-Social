@@ -67,9 +67,11 @@ async def get_soul_suggestions(
         user_profile['uid'] = uid
 
         # Ensure current user has fallback fields for calculation
-        if 'content_preference_vector' not in user_profile:
+        if not isinstance(user_profile.get('content_preference_vector'), list) or len(user_profile.get('content_preference_vector')) != 384:
             user_profile['content_preference_vector'] = [0.0] * 384
-        if 'current_emotion_vector' not in user_profile:
+        
+        user_emo = user_profile.get('current_emotion_vector')
+        if not isinstance(user_emo, dict):
             # check subcollection
             try:
                 profile_doc = db.collection('users').document(uid).collection('emotion_profile').document('current').get()
@@ -78,13 +80,36 @@ async def get_soul_suggestions(
             except Exception:
                 pass
         
+        if not isinstance(user_profile.get('current_emotion_vector'), dict):
+            user_profile['current_emotion_vector'] = {
+                'joy': 0.125, 'trust': 0.125, 'anticipation': 0.125, 'surprise': 0.125,
+                'sadness': 0.125, 'fear': 0.125, 'anger': 0.125, 'disgust': 0.125
+            }
+
+        # Query existing soul connections to exclude matched/decided users
+        exclude_uids = {uid}
+        try:
+            connections_query = db.collection('soul_connections').where('participants', 'array_contains', uid).stream()
+            for doc in connections_query:
+                conn_data = doc.to_dict()
+                user_a_id = conn_data.get('user_a_id')
+                user_b_id = conn_data.get('user_b_id')
+                other_id = user_b_id if user_a_id == uid else user_a_id
+                
+                my_action_field = 'user_a_action' if user_a_id == uid else 'user_b_action'
+                if conn_data.get(my_action_field) is not None or conn_data.get('status') in ['active', 'rejected']:
+                    if other_id:
+                        exclude_uids.add(other_id)
+        except Exception as e:
+            print(f"⚠️ Error querying existing connections: {e}")
+        
         # 2. Query other users from Firestore
         other_users = []
         try:
             users_query = db.collection('users').limit(50).stream()
             for doc in users_query:
-                if doc.id == uid:
-                    continue  # Skip self
+                if doc.id in exclude_uids:
+                    continue  # Skip self and already matched/decided users
                 
                 u_data = doc.to_dict()
                 u_data['uid'] = doc.id
@@ -92,20 +117,34 @@ async def get_soul_suggestions(
         except Exception as e:
             print(f"⚠️ Error querying other users: {e}")
 
-        # 3. Filter out users that are already matched (optional / simple check for demo)
-        # In production, query `soul_connections` to exclude existing matches
-
         # 4. Compute compatibility for each other user
         suggestions = []
         for other in other_users:
-            # Provide defaults for clean scoring
-            if 'content_preference_vector' not in other:
+            # Provide defaults for clean scoring and Pydantic validation
+            if not isinstance(other.get('content_preference_vector'), list) or len(other.get('content_preference_vector')) != 384:
                 other['content_preference_vector'] = [0.0] * 384
-            if 'current_emotion_vector' not in other:
-                other['current_emotion_vector'] = {
+            
+            other_emo = other.get('current_emotion_vector')
+            if not isinstance(other_emo, dict):
+                other_emo = {
                     'joy': 0.125, 'trust': 0.125, 'anticipation': 0.125, 'surprise': 0.125,
                     'sadness': 0.125, 'fear': 0.125, 'anger': 0.125, 'disgust': 0.125
                 }
+            else:
+                for e in ['joy', 'trust', 'anticipation', 'surprise', 'sadness', 'fear', 'anger', 'disgust']:
+                    if e not in other_emo or other_emo[e] is None:
+                        other_emo[e] = 0.125
+                    else:
+                        try:
+                            other_emo[e] = float(other_emo[e])
+                        except ValueError:
+                            other_emo[e] = 0.125
+            other['current_emotion_vector'] = other_emo
+
+            if not isinstance(other.get('interests'), list):
+                other['interests'] = []
+            if not isinstance(other.get('peak_activity_hours'), list):
+                other['peak_activity_hours'] = [12]
             
             # Compute score
             res = soul_engine.calculate_soul_score(user_profile, other)
@@ -114,7 +153,10 @@ async def get_soul_suggestions(
             if res['soul_score'] >= 0.0:
                 # Map Plutchik vector keys to floats
                 emo_vector = other['current_emotion_vector']
-                dominant = other.get('author_dominant_emotion', 'explore')
+                dominant = other.get('author_dominant_emotion')
+                if not dominant:
+                    sorted_e = sorted(emo_vector.items(), key=lambda x: x[1], reverse=True)
+                    dominant = sorted_e[0][0] if sorted_e else 'explore'
                 
                 # Check for existing connection ID or generate one (order-independent)
                 first_id, second_id = (uid, other['uid']) if uid < other['uid'] else (other['uid'], uid)
@@ -145,6 +187,8 @@ async def get_soul_suggestions(
                 except Exception as e:
                     print(f"⚠️ Failed to write soul connection {connection_id} to Firestore: {e}")
 
+                displayName = other.get('displayName') or other.get('display_name') or 'Người dùng AURA'
+
                 suggestion = SoulSuggestion(
                     connectionId=connection_id,
                     soulScore=res['soul_score'],
@@ -158,8 +202,8 @@ async def get_soul_suggestions(
                     ),
                     otherUser=SoulUser(
                         uid=other['uid'],
-                        displayName=other.get('displayName', 'Người dùng AURA'),
-                        bio=other.get('bio', ''),
+                        displayName=displayName,
+                        bio=other.get('bio') or '',
                         auraDominantEmotion=dominant,
                         emotionVector=emo_vector
                     )

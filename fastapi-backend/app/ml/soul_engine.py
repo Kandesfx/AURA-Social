@@ -38,8 +38,11 @@ class SoulConnectEngine:
         )
 
         # 4. Interest Overlap Rate (15%)
-        interests_a = set(user_a.get('interests', []))
-        interests_b = set(user_b.get('interests', []))
+        raw_int_a = user_a.get('interests')
+        interests_a = set(raw_int_a) if isinstance(raw_int_a, (list, tuple, set)) else set()
+        raw_int_b = user_b.get('interests')
+        interests_b = set(raw_int_b) if isinstance(raw_int_b, (list, tuple, set)) else set()
+        
         if interests_a and interests_b:
             interest_sim = len(interests_a & interests_b) / len(interests_a | interests_b)
         else:
@@ -166,6 +169,8 @@ class SoulConnectEngine:
 
     def _activity_alignment(self, hours_a: List[int], hours_b: List[int]) -> float:
         """Compare peak activity hours."""
+        if not isinstance(hours_a, (list, tuple, set)) or not isinstance(hours_b, (list, tuple, set)):
+            return 0.5
         if not hours_a or not hours_b:
             return 0.5
 

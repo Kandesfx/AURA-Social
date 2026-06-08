@@ -30,33 +30,64 @@ class DeepRecommendationPipeline:
         db = get_firestore()
 
         try:
-            # Query Firestore for active posts (without order_by to avoid composite index error)
+            # Query 1: Posts có status == 'active'
             posts_ref = db.collection('posts')\
                 .where('status', '==', 'active')\
                 .limit(100)
             
-            docs = posts_ref.stream()
+            docs = list(posts_ref.stream())
             for doc in docs:
                 post_data = doc.to_dict()
                 post_data['post_id'] = doc.id
                 candidates.append(post_data)
             
-            # Sort in-memory by created_at DESC (safe conversion of timezone-aware datetimes)
+            print(f"[Feed] Query 'status==active' returned {len(candidates)} posts")
+
+            # Nếu ít hơn 5 bài → thêm fallback query không lọc status
+            # (Bài mới tạo có thể chưa có field 'status')
+            if len(candidates) < 5:
+                print(f"[Feed] Too few results, running fallback query without status filter...")
+                try:
+                    all_posts_ref = db.collection('posts').limit(100)
+                    all_docs = list(all_posts_ref.stream())
+                    seen_ids = {c.get('post_id') for c in candidates}
+                    for doc in all_docs:
+                        if doc.id not in seen_ids:
+                            post_data = doc.to_dict()
+                            # Bỏ qua bài bị xóa/ẩn rõ ràng
+                            if post_data.get('status') not in ('hidden', 'removed'):
+                                post_data['post_id'] = doc.id
+                                candidates.append(post_data)
+                    print(f"[Feed] After fallback query: {len(candidates)} total candidates")
+                except Exception as fe:
+                    print(f"[Feed] Fallback query failed: {fe}")
+            
+            # Sort in-memory by created_at DESC
             def get_created_at(x):
                 ca = x.get('created_at')
                 if ca is None:
                     return datetime.min.replace(tzinfo=timezone.utc)
-                if hasattr(ca, 'tzinfo') and ca.tzinfo is None:
-                    return ca.replace(tzinfo=timezone.utc)
-                return ca
+                if isinstance(ca, datetime):
+                    if ca.tzinfo is None:
+                        return ca.replace(tzinfo=timezone.utc)
+                    return ca
+                if isinstance(ca, str):
+                    try:
+                        parsed = datetime.fromisoformat(ca.replace('Z', '+00:00'))
+                        if parsed.tzinfo is None:
+                            return parsed.replace(tzinfo=timezone.utc)
+                        return parsed
+                    except Exception:
+                        pass
+                return datetime.min.replace(tzinfo=timezone.utc)
             
             candidates.sort(key=get_created_at, reverse=True)
         except Exception as e:
-            print(f"⚠️ Error fetching posts from Firestore: {e}")
+            print(f"[Feed] Error fetching posts from Firestore: {e}")
 
         # Fallback to high-quality mock posts if Firestore is empty/unavailable
         if len(candidates) < 1:
-            print("ℹ️ Firestore is completely empty. Injecting high-quality mock candidates.")
+            print("[Feed] Firestore is completely empty. Injecting high-quality mock candidates.")
             candidates.extend(self._get_mock_posts())
 
         # Deduplicate candidates by post_id
@@ -86,8 +117,16 @@ class DeepRecommendationPipeline:
         now = datetime.now(timezone.utc)
 
         # Extract user profile traits
-        user_preference = np.array(user_profile.get('content_preference_vector', [0.0] * 384))
-        user_following = user_profile.get('following_ids', [])
+        raw_pref = user_profile.get('content_preference_vector')
+        if isinstance(raw_pref, list) and len(raw_pref) == 384:
+            user_preference = np.array(raw_pref)
+        else:
+            user_preference = np.array([0.0] * 384)
+            
+        user_following = user_profile.get('following_ids')
+        if not isinstance(user_following, list):
+            user_following = []
+            
         user_mode = user_profile.get('emotional_mode', 'explore')
 
         # Calculate base preference norms
@@ -97,7 +136,12 @@ class DeepRecommendationPipeline:
             post_id = post.get('post_id') or post.get('id') or f"post_{random.randint(1000, 9999)}"
 
             # 1. Content Taste Similarity (35%)
-            post_embedding = np.array(post.get('content_embedding', [0.0] * 384))
+            raw_post_emb = post.get('content_embedding')
+            if isinstance(raw_post_emb, list) and len(raw_post_emb) == 384:
+                post_embedding = np.array(raw_post_emb)
+            else:
+                post_embedding = np.array([0.0] * 384)
+                
             embed_norm = np.linalg.norm(post_embedding)
 
             if pref_norm > 0 and embed_norm > 0:
@@ -175,11 +219,11 @@ class DeepRecommendationPipeline:
         """
         Calculate resonance based on Plutchik vectors and user emotional mode.
         """
-        if not user_emotion or not post_emotion:
+        if not isinstance(user_emotion, dict) or not isinstance(post_emotion, dict):
             return 0.5
 
-        u_vec = np.array([user_emotion.get(e, 0.125) for e in EMOTIONS])
-        p_vec = np.array([post_emotion.get(e, 0.125) for e in EMOTIONS])
+        u_vec = np.array([user_emotion.get(e) if isinstance(user_emotion.get(e), (int, float)) else 0.125 for e in EMOTIONS])
+        p_vec = np.array([post_emotion.get(e) if isinstance(post_emotion.get(e), (int, float)) else 0.125 for e in EMOTIONS])
 
         u_norm = np.linalg.norm(u_vec)
         p_norm = np.linalg.norm(p_vec)

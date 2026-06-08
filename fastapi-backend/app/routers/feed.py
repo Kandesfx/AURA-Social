@@ -48,6 +48,28 @@ async def generate_feed(
                 'current_session_minutes': 5
             }
 
+        # Normalize required fields and check defaults
+        if not isinstance(user_profile.get('content_preference_vector'), list) or len(user_profile.get('content_preference_vector')) != 384:
+            user_profile['content_preference_vector'] = [0.0] * 384
+
+        if not isinstance(user_profile.get('interests'), list):
+            user_profile['interests'] = []
+
+        if 'emotional_mode' not in user_profile:
+            user_profile['emotional_mode'] = 'explore'
+
+        if 'current_session_minutes' not in user_profile:
+            user_profile['current_session_minutes'] = 5
+
+        # Fetch actual following_ids from subcollection users/{uid}/following
+        following_ids = []
+        try:
+            following_snap = db.collection('users').document(uid).collection('following').stream()
+            following_ids = [doc.id for doc in following_snap]
+        except Exception as fe:
+            print(f"⚠️ Error fetching following IDs for user {uid}: {fe}")
+        user_profile['following_ids'] = following_ids
+
         # 2. Determine user's current emotion vector
         user_emotion = request.emotion_context
         if not user_emotion:

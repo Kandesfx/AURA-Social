@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/api_service.dart';
 import '../providers/api_service_provider.dart';
@@ -30,18 +31,21 @@ class FeedService {
       final data = response.data;
       final List<dynamic> items = data['items'] ?? [];
 
+      // Nếu backend trả về empty list → fallback Firestore
+      if (items.isEmpty && page == 0) {
+        debugPrint('[FeedService] Backend returned 0 items, falling back to Firestore...');
+        return _getForYouFeedFromFirestore(page: page, limit: limit);
+      }
+
       final posts = items.map((item) {
         final postData = Map<String, dynamic>.from(item['post_data'] ?? {});
         final reason = item['reason'] as String? ?? '';
 
-        // Enrich postData with the recommendation reason so we can show it on the PostCard
         postData['relevance_reason'] = reason;
 
-        // Map fields to match what feed_screen.dart / PostModel.fromMockMap expects
         final mediaUrls = List<String>.from(postData['media_urls'] ?? []);
         final hasImage = (postData['media_type'] ?? 'none') == 'image' && mediaUrls.isNotEmpty;
 
-        // Format timeAgo
         DateTime createdAt = DateTime.now();
         if (postData['created_at'] != null) {
           try {
@@ -90,8 +94,71 @@ class FeedService {
         ),
       );
     } catch (e) {
-      // ignore: avoid_print
-      print('[FeedService] Error getting For You feed from backend: $e');
+      debugPrint('[FeedService] Backend không kết nối được: $e');
+      debugPrint('[FeedService] Đang fallback sang Firestore trực tiếp...');
+      // Khi backend offline → lấy thẳng từ Firestore
+      return _getForYouFeedFromFirestore(page: page, limit: limit);
+    }
+  }
+
+  /// Fallback: Lấy For You feed thẳng từ Firestore khi backend không kết nối được.
+  /// Query tất cả posts (không lọc status) và sắp xếp theo created_at.
+  Future<FeedResult> _getForYouFeedFromFirestore({int page = 0, int limit = 20}) async {
+    try {
+      // Lấy tất cả posts, không lọc status để hiển thị được nhiều nhất
+      // (Backend mới lọc status == active, ở đây ta lấy cả 2 trạng thái)
+      final snap = await FirebaseFirestore.instance
+          .collection('posts')
+          .orderBy('created_at', descending: true)
+          .limit(limit)
+          .get();
+
+      debugPrint('[FeedService] Firestore fallback: got ${snap.docs.length} posts');
+
+      final posts = snap.docs.map((doc) {
+        final data = doc.data();
+        final mediaUrls = List<String>.from(data['media_urls'] ?? []);
+        final hasImage = (data['media_type'] ?? 'none') == 'image' && mediaUrls.isNotEmpty;
+        final createdAt = (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final diff = DateTime.now().difference(createdAt);
+        String timeAgoText = '1h';
+        if (diff.inMinutes < 60) {
+          timeAgoText = '${diff.inMinutes}m';
+        } else if (diff.inHours < 24) {
+          timeAgoText = '${diff.inHours}h';
+        } else {
+          timeAgoText = '${diff.inDays}d';
+        }
+
+        return {
+          'id': doc.id,
+          'userId': data['user_id'] ?? '',
+          'userName': data['author_name'] ?? 'User',
+          'userHandle': data['author_username'] != null ? '@${data['author_username']}' : '',
+          'timeAgo': timeAgoText,
+          'content': data['content'] ?? '',
+          'hasImage': hasImage,
+          'imageUrl': hasImage ? mediaUrls.first : null,
+          'emotionVector': data['ai_emotion_vector'] ?? {},
+          'reactions': data['reactions_breakdown'] ?? {},
+          'commentCount': data['comments_count'] ?? 0,
+          'avatarUrl': data['author_avatar_url'],
+          'is_breaker': false,
+          'relevance_reason': 'Bài đăng mới nhất',
+        };
+      }).toList();
+
+      return FeedResult(
+        posts: posts,
+        hasMore: snap.docs.length == limit,
+        feedMeta: FeedMeta(
+          emotionalMode: 'explore',
+          diversityScore: 0.5,
+          generatedAt: DateTime.now(),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[FeedService] Firestore fallback cũng lỗi: $e');
       return FeedResult(
         posts: [],
         hasMore: false,

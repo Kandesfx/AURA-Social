@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/soul_service.dart';
 import '../models/soul_connection_model.dart';
 import '../../chat/providers/chat_provider.dart';
+import '../../../providers/user_profile_provider.dart';
 
 /// AURA Social – Soul Connect Providers
 ///
@@ -68,6 +70,15 @@ class SoulActionNotifier extends StateNotifier<SoulActionState> {
       
       // Chống cháy: Tự động tạo phòng chat trống khi Accept
       await _ref.read(conversationActionsProvider).getOrCreateConversation(peerId);
+
+      // Tự động follow tài khoản đối phương khi Accept kết nối
+      final myUid = FirebaseAuth.instance.currentUser?.uid;
+      if (myUid != null && myUid != peerId) {
+        final isFollowing = await _ref.read(userProfileServiceProvider).isFollowing(myUid, peerId);
+        if (!isFollowing) {
+          await _ref.read(userProfileServiceProvider).toggleFollow(myUid, peerId);
+        }
+      }
 
       state = state.copyWith(
         isProcessing: false,

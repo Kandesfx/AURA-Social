@@ -1,6 +1,7 @@
 #!/bin/bash
 # AURA Social – Backend Deployment Script for Cloud Run
-# High-resource Configuration (4 vCPU, 8 GiB RAM, Min Instances = 2)
+# High-resource Configuration (4 vCPU, 8 GiB RAM, Min Instances = 1, Max Instances = 5)
+# Optimized to fit project quota limits (Max 20 vCPU / 40 GiB RAM per region)
 
 # Set configuration variables
 PROJECT_ID=$(gcloud config get-value project)
@@ -16,7 +17,7 @@ echo "🚀 Deploying AURA Social Backend to Cloud Run..."
 echo "📦 Project ID: $PROJECT_ID"
 echo "🔧 Service: $SERVICE_NAME"
 echo "📍 Region: $REGION"
-echo "🔥 Configuration: 4 vCPU, 8 GiB RAM, Min Instances: 2, Max Instances: 10"
+echo "🔥 Configuration: 4 vCPU, 8 GiB RAM, Min Instances: 1, Max Instances: 5"
 
 # 1. Build and push image using Cloud Builds
 echo "⚡ Building and pushing Docker image to Container Registry..."
@@ -36,8 +37,8 @@ gcloud run deploy $SERVICE_NAME \
   --allow-unauthenticated \
   --cpu=4 \
   --memory=8Gi \
-  --min-instances=2 \
-  --max-instances=10 \
+  --min-instances=1 \
+  --max-instances=5 \
   --concurrency=80 \
   --set-env-vars ENVIRONMENT=production
 

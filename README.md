@@ -134,13 +134,17 @@ AURA-Social/
 │
 ├── fastapi-backend/              # 🤖 AI Processing Server
 │   ├── app/
-│   │   ├── routers/              #    API endpoints
-│   │   ├── services/             #    Business logic + R2 storage
+│   │   ├── routers/              #    API endpoints (emotion, feed, soul, notifications...)
+│   │   ├── services/             #    Business logic (notification_service, storage)
 │   │   ├── models/               #    Pydantic schemas
 │   │   └── ml/                   #    ML model loader + vector math
+│   ├── tests/                     #    pytest unit tests
 │   ├── main.py
 │   ├── Dockerfile
 │   └── requirements.txt
+│
+├── .github/
+│   └── workflows/                # ⚙️ GitHub Actions CI/CD
 │
 ├── docs/                         # 📚 Documentation
 │   ├── AURA-System-Design/       #    8 tài liệu thiết kế chi tiết
@@ -188,6 +192,26 @@ uvicorn main:app --reload
 ```
 
 Mở `http://localhost:8080/docs` để xem API documentation.
+
+---
+
+## 🔄 CI/CD Pipeline
+
+GitHub Actions tự động chạy:
+
+| Job | Trigger | Mô tả |
+|-----|---------|--------|
+| `flutter-test` | Push/PR | Flutter analyze + unit tests |
+| `backend-test` | Push/PR | Python lint + pytest |
+| `build-android` | Push/PR (sau flutter-test) | Build debug APK |
+| `build-docker` | Push main | Build Docker image |
+| `deploy-backend` | Push main | Deploy lên Cloud Run |
+
+**Secrets cần thiết:**
+- `GCP_SA_KEY` – Service Account key cho Cloud Run
+- `GCP_PROJECT_ID` – Google Cloud project ID
+- `CLOUDSQL_INSTANCE` – Cloud SQL instance connection string
+- `DOCKER_USERNAME` / `DOCKER_PASSWORD` – Docker Hub (optional)
 
 ---
 

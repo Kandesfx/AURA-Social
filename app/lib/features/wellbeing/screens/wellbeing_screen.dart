@@ -8,6 +8,8 @@ import '../../../providers/emotion_profile_provider.dart';
 import '../../../shared/models/emotion_profile_model.dart';
 import '../widgets/break_card.dart';
 import '../widgets/crisis_resource_card.dart';
+import '../widgets/mood_trend_chart.dart';
+import '../widgets/emotion_distribution_chart.dart';
 import '../../compass/widgets/ai_insight_card.dart';
 import '../../../shared/widgets/shimmer_loading.dart';
 
@@ -81,6 +83,26 @@ class WellbeingScreen extends ConsumerWidget {
           _buildMoodSummary(profile)
               .animate()
               .fadeIn(duration: 400.ms, delay: 100.ms),
+
+          const SizedBox(height: 16),
+
+          // ── Mood Trend Chart ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: MoodTrendChart(weeklyData: profile.moodTrendData)
+                .animate()
+                .fadeIn(duration: 400.ms, delay: 150.ms),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Emotion Distribution Chart ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: EmotionDistributionChart(
+              emotionCounts: profile.emotionCounts,
+            ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
+          ),
 
           const SizedBox(height: 20),
 

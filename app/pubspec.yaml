@@ -25,19 +25,20 @@ dependencies:
   # Navigation
   go_router: ^14.8.1
 
-  # HTTP
+  # HTTP Client
   dio: ^5.7.0
-
-  # Firebase (add later when firebase project is ready)
-  # firebase_core: ^3.3.0
-  # firebase_auth: ^5.2.0
-  # cloud_firestore: ^5.4.0
-  # firebase_database: ^11.1.0
-  # firebase_storage: ^12.3.0
-  # firebase_messaging: ^15.1.0
 
   # Charts
   fl_chart: ^0.70.2
+
+  # Firebase
+  firebase_core: ^4.10.0
+  firebase_auth: ^6.5.2
+  cloud_firestore: ^6.5.0
+  firebase_database: ^12.4.2
+  firebase_storage: ^13.4.2
+  firebase_messaging: ^16.3.0
+  google_sign_in: ^6.2.2
 
   # Utils
   uuid: ^4.5.1
@@ -45,13 +46,6 @@ dependencies:
   intl: ^0.20.2
   shared_preferences: ^2.5.3
   image_picker: ^1.1.2
-  firebase_core: ^4.7.0
-  firebase_auth: ^6.4.0
-  cloud_firestore: ^6.3.0
-  firebase_database: ^12.3.0
-  firebase_storage: ^13.4.2
-  firebase_messaging: ^16.2.0
-  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:

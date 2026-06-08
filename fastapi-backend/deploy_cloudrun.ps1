@@ -1,5 +1,6 @@
 # AURA Social – Backend Deployment Script for Cloud Run (PowerShell)
-# High-resource Configuration (4 vCPU, 8 GiB RAM, Min Instances = 2)
+# High-resource Configuration (4 vCPU, 8 GiB RAM, Min Instances = 1, Max Instances = 5)
+# Optimized to fit project quota limits (Max 20 vCPU / 40 GiB RAM per region)
 
 $ProjectId = gcloud config get-value project 2>$null
 
@@ -15,7 +16,7 @@ Write-Host "🚀 Deploying AURA Social Backend to Cloud Run..." -ForegroundColor
 Write-Host "📦 Project ID: $ProjectId"
 Write-Host "🔧 Service: $ServiceName"
 Write-Host "📍 Region: $Region"
-Write-Host "🔥 Configuration: 4 vCPU, 8 GiB RAM, Min Instances: 2, Max Instances: 10" -ForegroundColor Yellow
+Write-Host "🔥 Configuration: 4 vCPU, 8 GiB RAM, Min Instances: 1, Max Instances: 5" -ForegroundColor Yellow
 
 # 1. Build and push image using Cloud Builds
 Write-Host "⚡ Building and pushing Docker image to Container Registry..." -ForegroundColor Green
@@ -35,8 +36,8 @@ gcloud run deploy $ServiceName `
   --allow-unauthenticated `
   --cpu=4 `
   --memory=8Gi `
-  --min-instances=2 `
-  --max-instances=10 `
+  --min-instances=1 `
+  --max-instances=5 `
   --concurrency=80 `
   --set-env-vars ENVIRONMENT=production
 

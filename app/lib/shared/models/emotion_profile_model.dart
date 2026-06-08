@@ -128,4 +128,35 @@ class EmotionProfileModel {
 
   /// Kiểm tra đã có dữ liệu inference chưa
   bool get hasData => totalInferences > 0 && currentEmotionVector.isNotEmpty;
+
+  /// Emotion counts cho distribution chart (7 ngày)
+  /// Lấy từ weeklyTrend['emotion_counts'] hoặc tính từ weeklyPattern
+  Map<String, int> get emotionCounts {
+    if (weeklyTrend.containsKey('emotion_counts') &&
+        weeklyTrend['emotion_counts'] is Map) {
+      final raw = weeklyTrend['emotion_counts'] as Map;
+      return raw.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+    }
+    // Fallback: estimate từ current vector * 7 days
+    return currentEmotionVector.map(
+      (k, v) => MapEntry(k, (v * 7).round().clamp(0, 100)),
+    );
+  }
+
+  /// Weekly data cho mood trend chart (valence theo ngày)
+  Map<String, dynamic> get moodTrendData {
+    if (weeklyTrend.containsKey('day_0')) {
+      return Map<String, dynamic>.from(weeklyTrend);
+    }
+    // Fallback: trả về 7 ngày mặc định
+    return {
+      'day_0': valence,
+      'day_1': valence * 0.9,
+      'day_2': valence * 0.85,
+      'day_3': valence * 0.8,
+      'day_4': valence * 0.9,
+      'day_5': valence * 0.95,
+      'day_6': valence,
+    };
+  }
 }

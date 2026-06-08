@@ -84,7 +84,9 @@ class SoulConnectService {
           .limit(limit)
           .get();
 
-      if (snapshot.docs.isEmpty) return [];
+      if (snapshot.docs.isEmpty) {
+        return _getClientMockSuggestions(uid);
+      }
 
       final suggestions = <SoulSuggestion>[];
 
@@ -148,6 +150,12 @@ class SoulConnectService {
   Future<void> respondToConnection(String connectionId, String action) async {
     final uid = _uid;
     if (uid == null) return;
+    
+    // Nếu là connection ảo (mock client side), chỉ cần return thành công
+    if (connectionId.startsWith('soul-conn-fall-')) {
+      return;
+    }
+    
     final docRef = _firestore.collection('soul_connections').doc(connectionId);
     final doc = await docRef.get();
 
@@ -176,6 +184,69 @@ class SoulConnectService {
       'status': newStatus,
       'updated_at': FieldValue.serverTimestamp(),
       if (newStatus == 'active') 'connected_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  List<SoulSuggestion> _getClientMockSuggestions(String currentUid) {
+    final mockUsers = [
+      {
+        'uid': 'user_fall_1',
+        'displayName': 'Linh Nguyễn',
+        'bio': 'Yêu thích đọc sách và nhạc chill chill ☕✨',
+        'auraDominantEmotion': 'joy',
+        'emotionVector': {
+          'joy': 0.45, 'trust': 0.25, 'anticipation': 0.15, 'surprise': 0.05,
+          'sadness': 0.04, 'fear': 0.02, 'anger': 0.02, 'disgust': 0.02
+        }
+      },
+      {
+        'uid': 'user_fall_2',
+        'displayName': 'Quang Huy',
+        'bio': 'Đam mê công nghệ, chạy bộ 🏃‍♂️🚀',
+        'auraDominantEmotion': 'anticipation',
+        'emotionVector': {
+          'anticipation': 0.40, 'joy': 0.30, 'trust': 0.15, 'surprise': 0.05,
+          'sadness': 0.05, 'fear': 0.02, 'anger': 0.02, 'disgust': 0.01
+        }
+      },
+      {
+        'uid': 'user_fall_3',
+        'displayName': 'Phan Đăng',
+        'bio': 'Tâm trí tĩnh lặng, cuộc sống bình yên 🧘‍♂️📖',
+        'auraDominantEmotion': 'trust',
+        'emotionVector': {
+          'trust': 0.50, 'joy': 0.20, 'anticipation': 0.10, 'surprise': 0.05,
+          'sadness': 0.10, 'fear': 0.02, 'anger': 0.01, 'disgust': 0.02
+        }
+      }
+    ];
+
+    final prefix = currentUid.substring(0, currentUid.length > 4 ? 4 : currentUid.length);
+
+    return List.generate(mockUsers.length, (index) {
+      final u = mockUsers[index];
+      final score = 0.85 - index * 0.06;
+      final rawVector = Map<String, double>.from(u['emotionVector'] as Map);
+      
+      return SoulSuggestion(
+        connectionId: 'soul-conn-fall-$prefix-${(u['uid'] as String).substring(10)}',
+        soulScore: score,
+        connectionType: score < 0.8 ? 'Vibe Partner' : 'Soulmate',
+        breakdown: CompatibilityBreakdown(
+          emotionalPattern: 0.88 - index * 0.05,
+          contentTaste: 0.85 - index * 0.04,
+          complementary: 0.90 - index * 0.06,
+          interests: 0.75 - index * 0.02,
+          activity: 0.80 - index * 0.03,
+        ),
+        otherUser: SoulUser(
+          uid: u['uid'] as String,
+          displayName: u['displayName'] as String,
+          bio: u['bio'] as String,
+          auraDominantEmotion: u['auraDominantEmotion'] as String,
+          emotionVector: rawVector,
+        ),
+      );
     });
   }
 }

@@ -214,6 +214,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   ConversationModel? _findConversation() {
+    final singleConv =
+        ref.read(conversationStreamProvider(widget.conversationId)).value;
+    if (singleConv != null) return singleConv;
+
     final conversations = ref.read(conversationsProvider);
     for (final item in conversations) {
       if (item.id == widget.conversationId) return item;
@@ -553,16 +557,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     _previousMessageCount = messages.length;
 
-    // Tìm conversation hiện tại
-    final conversation = conversations.firstWhere(
-      (c) => c.id == widget.conversationId,
-      orElse: () => ConversationModel(
-        id: widget.conversationId,
-        participants: [],
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-    );
+    final asyncConversation =
+        ref.watch(conversationStreamProvider(widget.conversationId));
+    final conversation = asyncConversation.value ??
+        conversations.firstWhere(
+          (c) => c.id == widget.conversationId,
+          orElse: () => ConversationModel(
+            id: widget.conversationId,
+            participants: [],
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
 
     final peerId = conversation.participants.isNotEmpty
         ? conversation.participants.firstWhere(

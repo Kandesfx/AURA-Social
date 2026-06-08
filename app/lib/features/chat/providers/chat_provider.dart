@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/chat_service.dart';
@@ -24,6 +25,25 @@ final currentUserIdProvider = Provider<String>((ref) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CONVERSATIONS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Stream details of a single conversation.
+final conversationStreamProvider =
+    StreamProvider.family<ConversationModel?, String>((ref, conversationId) {
+  final currentUserId = ref.watch(currentUserIdProvider);
+  if (currentUserId.isEmpty) return Stream.value(null);
+
+  final chatService = ref.watch(chatServiceProvider);
+  return FirebaseFirestore.instance
+      .collection('conversations')
+      .doc(conversationId)
+      .snapshots()
+      .asyncMap((doc) async {
+        if (!doc.exists) return null;
+        final rawConv = ConversationModel.fromFirestore(doc);
+        final enriched = await chatService.enrichConversations([rawConv], currentUserId);
+        return enriched.isNotEmpty ? enriched.first : rawConv;
+      });
+});
 
 /// Stream danh sách conversations từ Firestore.
 /// Tự động enrich với peer info (name, avatar, online status).

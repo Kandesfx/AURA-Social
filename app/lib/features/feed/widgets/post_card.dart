@@ -11,6 +11,7 @@ import 'emotion_reaction_bar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// AURA Social – Post Card Widget
 ///
@@ -117,13 +118,40 @@ class PostCard extends StatelessWidget {
             _FooterButton(icon: Icons.chat_bubble_outline_rounded, label: '${post.commentsCount}',
               onTap: () => context.push('/post/${post.postId}')),
             const SizedBox(width: 16),
-            _FooterButton(icon: Icons.repeat_rounded, label: '${post.sharesCount}', onTap: () {}),
+            _FooterButton(icon: Icons.repeat_rounded, label: '${post.sharesCount}', onTap: () => _sharePost(context)),
             const Spacer(),
             _FooterButton(icon: Icons.bookmark_outline_rounded, label: '', onTap: () {}),
           ]),
         ),
       ]),
     );
+  }
+
+  Future<void> _sharePost(BuildContext context) async {
+    final text = post.content;
+    final author = post.authorName ?? 'Someone';
+    final shareText = '$author đã chia sẻ bài viết trên AURA:\n\n$text';
+
+    try {
+      await Share.share(
+        shareText,
+        subject: 'Bài viết từ AURA Social',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã chia sẻ bài viết'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể chia sẻ: $e')),
+        );
+      }
+    }
   }
 
   String _timeAgo(DateTime? date) {

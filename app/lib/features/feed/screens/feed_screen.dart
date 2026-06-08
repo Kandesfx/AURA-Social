@@ -489,7 +489,7 @@ class _ForYouTabState extends ConsumerState<_ForYouTab> {
 
           return PostCard(
             post: PostModel.fromMockMap(postData),
-            persistReactionChanges: false,
+            persistReactionChanges: true,
           )
               .animate()
               .fadeIn(duration: 400.ms, delay: delay)

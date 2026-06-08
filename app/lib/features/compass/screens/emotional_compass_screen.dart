@@ -11,6 +11,7 @@ import '../widgets/ai_insight_card.dart';
 import '../../../providers/emotion_profile_provider.dart';
 import '../../../shared/models/emotion_profile_model.dart';
 import '../../../services/wellbeing_service.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 
 /// AURA Social – Emotional Compass Screen
 ///
@@ -39,20 +40,26 @@ class EmotionalCompassScreen extends ConsumerWidget {
         ],
       ),
       body: reportAsync.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(color: AuraColors.primary),
-        ),
+        loading: () => const ShimmerCompassLoading(),
         error: (err, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Không thể tải báo cáo tâm trạng',
+                'Không thể kết nối máy chủ',
                 style: AuraTypography.titleMedium.copyWith(
                   color: AuraColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              Text(
+                'Vui lòng kiểm tra lại kết nối mạng và thử lại.',
+                style: AuraTypography.bodySmall.copyWith(
+                  color: AuraColors.textTertiary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.refresh(weeklyReportProvider),
                 style: ElevatedButton.styleFrom(

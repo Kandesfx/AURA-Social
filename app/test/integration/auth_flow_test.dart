@@ -38,6 +38,11 @@ class MockAuthNotifier extends StateNotifier<AuthState> implements AuthNotifier 
   }
 
   @override
+  Future<bool> deleteAccount() async {
+    return true;
+  }
+
+  @override
   void clearError() {}
 }
 

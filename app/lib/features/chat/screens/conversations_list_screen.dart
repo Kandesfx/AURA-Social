@@ -9,6 +9,7 @@ import '../models/conversation_model.dart';
 import '../providers/chat_provider.dart';
 import '../../../services/chat_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 
 /// AURA Social – Conversations List Screen
 ///
@@ -412,12 +413,7 @@ class _ConversationsListScreenState
       ),
       body: asyncConversations.when(
         // ── Loading State ──
-        loading: () => Center(
-          child: CircularProgressIndicator(
-            color: AuraColors.primary,
-            strokeWidth: 2,
-          ),
-        ),
+        loading: () => const ShimmerChatList(),
 
         // ── Error State ──
         error: (error, _) => Center(
@@ -438,7 +434,7 @@ class _ConversationsListScreenState
               ),
               const SizedBox(height: 8),
               Text(
-                error.toString(),
+                'Đã xảy ra lỗi khi kết nối máy chủ. Vui lòng thử lại sau.',
                 style: AuraTypography.bodySmall.copyWith(
                   color: AuraColors.textTertiary,
                 ),

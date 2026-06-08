@@ -252,3 +252,51 @@ class ShimmerBox extends StatelessWidget {
     );
   }
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SHIMMER CHAT LIST – Loading placeholder for ConversationsListScreen
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class ShimmerChatList extends StatelessWidget {
+  const ShimmerChatList({super.key, this.itemCount = 6});
+
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        return const ShimmerNotificationTile();
+      },
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SHIMMER COMPASS LOADING – Loading placeholder for EmotionalCompassScreen
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class ShimmerCompassLoading extends StatelessWidget {
+  const ShimmerCompassLoading({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          ShimmerBox(width: double.infinity, height: 100, borderRadius: 16),
+          SizedBox(height: 24),
+          ShimmerBox(width: double.infinity, height: 280, borderRadius: 16),
+          SizedBox(height: 24),
+          ShimmerBox(width: double.infinity, height: 180, borderRadius: 16),
+          SizedBox(height: 24),
+          ShimmerBox(width: double.infinity, height: 200, borderRadius: 16),
+        ],
+      ),
+    );
+  }
+}

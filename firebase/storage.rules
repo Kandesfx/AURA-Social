@@ -1,0 +1,97 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════
+// AURA Social – Firebase Storage Security Rules
+// ═══════════════════════════════════════════════
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helper Functions ──
+
+    // Kiểm tra user đã đăng nhập
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Kiểm tra user là chính chủ
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Giới hạn kích thước file (10MB)
+    function isValidFileSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Kiểm tra file là ảnh
+    function isImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Kiểm tra file là audio
+    function isAudioType() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+
+    // ════════════════════════════════════════════
+    // CHAT MEDIA (images, audio trong chat)
+    // Path: /chats/{conversationId}/{fileName}
+    // ════════════════════════════════════════════
+    match /chats/{conversationId}/{fileName} {
+      // Ai đăng nhập cũng đọc được (để hiển thị ảnh trong chat)
+      allow read: if isAuthenticated();
+
+      // Đăng nhập + file hợp lệ (ảnh hoặc audio, < 10MB)
+      allow write: if isAuthenticated()
+                   && isValidFileSize()
+                   && (isImageType() || isAudioType());
+    }
+
+    // ════════════════════════════════════════════
+    // CHAT MEDIA – nested paths
+    // Path: /chats/{conversationId}/{subPath=**}
+    // Cho phép cấu trúc thư mục lồng nhau
+    // ════════════════════════════════════════════
+    match /chats/{conversationId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+
+      allow write: if isAuthenticated()
+                   && isValidFileSize();
+    }
+
+    // ════════════════════════════════════════════
+    // USER AVATARS
+    // Path: /avatars/{userId}/{fileName}
+    // ════════════════════════════════════════════
+    match /avatars/{userId}/{fileName} {
+      // Ai cũng đọc được avatar (public)
+      allow read: if isAuthenticated();
+
+      // Chỉ chính chủ upload avatar, phải là ảnh < 5MB
+      allow write: if isOwner(userId)
+                   && isImageType()
+                   && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // ════════════════════════════════════════════
+    // POST MEDIA (ảnh/video trong bài post)
+    // Path: /posts/{userId}/{fileName}
+    // ════════════════════════════════════════════
+    match /posts/{userId}/{fileName} {
+      // Ai đăng nhập cũng đọc được
+      allow read: if isAuthenticated();
+
+      // Chỉ chính chủ upload, file < 10MB
+      allow write: if isOwner(userId)
+                   && isValidFileSize();
+    }
+
+    // ════════════════════════════════════════════
+    // DEFAULT: Deny all other paths
+    // ════════════════════════════════════════════
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

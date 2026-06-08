@@ -21,6 +21,7 @@ import '../widgets/typing_indicator.dart';
 import '../widgets/chat_input.dart';
 import '../../../providers/api_service_provider.dart';
 import '../../../providers/emotion_profile_provider.dart';
+import '../../../shared/widgets/shimmer_loading.dart';
 
 /// AURA Social – Chat Screen
 ///
@@ -522,8 +523,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
-    final messages =
-        ref.watch(chatMessagesProvider(widget.conversationId));
+    final asyncMessages =
+        ref.watch(chatMessagesStreamProvider(widget.conversationId));
+    final messages = asyncMessages.value ?? <MessageModel>[];
     final currentUserId = ref.watch(currentUserIdProvider);
     final conversations = ref.watch(conversationsProvider);
 
@@ -574,12 +576,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ref.watch(typingStatusProvider(widget.conversationId));
     final showTyping = typingStatus.isTyping;
 
-    // Watch loading state
-    final isLoading = ref.watch(
-      chatMessagesStreamProvider(widget.conversationId)
-          .select((v) => v.isLoading),
-    );
-
     return Scaffold(
       backgroundColor: AuraColors.background,
       appBar: _buildAppBar(context, conversation, peerId),
@@ -587,68 +583,117 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         children: [
           // ── Messages ──
           Expanded(
-            child: isLoading && messages.isEmpty
-                ? _buildLoadingState()
-                : filteredMessages.isEmpty
-                    ? _isSearching
-                        ? Center(
-                            child: Text(
-                              'Không tìm thấy tin nhắn phù hợp',
-                              style: AuraTypography.bodyMedium.copyWith(
-                                color: AuraColors.textTertiary,
-                              ),
+            child: asyncMessages.when(
+              data: (_) {
+                if (filteredMessages.isEmpty) {
+                  return _isSearching
+                      ? Center(
+                          child: Text(
+                            'Không tìm thấy tin nhắn phù hợp',
+                            style: AuraTypography.bodyMedium.copyWith(
+                              color: AuraColors.textTertiary,
                             ),
-                          )
-                        : _buildEmptyChat(conversation.peerName ?? 'User')
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.only(top: 16, bottom: 8),
-                        itemCount: filteredMessages.length + (showTyping && !_isSearching ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          // Typing indicator ở cuối
-                          if (showTyping && !_isSearching && index == filteredMessages.length) {
-                            return TypingIndicator(
-                              userName: conversation.peerName,
-                              showName: false,
-                            ).animate().fadeIn(duration: 200.ms);
-                          }
+                          ),
+                        )
+                      : _buildEmptyChat(conversation.peerName ?? 'User');
+                }
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                  itemCount: filteredMessages.length +
+                      (showTyping && !_isSearching ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    // Typing indicator ở cuối
+                    if (showTyping &&
+                        !_isSearching &&
+                        index == filteredMessages.length) {
+                      return TypingIndicator(
+                        userName: conversation.peerName,
+                        showName: false,
+                      ).animate().fadeIn(duration: 200.ms);
+                    }
 
-                          final message = filteredMessages[index];
-                          final isMine = message.isMine(currentUserId);
+                    final message = filteredMessages[index];
+                    final isMine = message.isMine(currentUserId);
 
-                          // Check nếu message tiếp theo cùng sender
-                          final isLastInGroup = index == filteredMessages.length - 1 ||
-                              filteredMessages[index + 1].senderId != message.senderId;
+                    // Check nếu message tiếp theo cùng sender
+                    final isLastInGroup =
+                        index == filteredMessages.length - 1 ||
+                            filteredMessages[index + 1].senderId !=
+                                message.senderId;
 
-                          // Date separator
-                          Widget? dateSeparator;
-                          if (index == 0 ||
-                              !_isSameDay(filteredMessages[index - 1].timestamp,
-                                  message.timestamp)) {
-                            dateSeparator = DateSeparator(
-                              date: _formatDate(message.timestamp),
-                            );
-                          }
+                    // Date separator
+                    Widget? dateSeparator;
+                    if (index == 0 ||
+                        !_isSameDay(filteredMessages[index - 1].timestamp,
+                            message.timestamp)) {
+                      dateSeparator = DateSeparator(
+                        date: _formatDate(message.timestamp),
+                      );
+                    }
 
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (dateSeparator != null) dateSeparator,
-                              MessageBubble(
-                                message: message,
-                                isMine: isMine,
-                                	isLastInGroup: isLastInGroup,
-                                onLongPress: () => _showMessageActions(message),
-                              ).animate().fadeIn(
-                                    duration: 250.ms,
-                                    delay: Duration(
-                                        milliseconds:
-                                            (index * 30).clamp(0, 300)),
-                                  ),
-                            ],
-                          );
-                        },
-                      ),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (dateSeparator != null) dateSeparator,
+                        MessageBubble(
+                          message: message,
+                          isMine: isMine,
+                          isLastInGroup: isLastInGroup,
+                          onLongPress: () => _showMessageActions(message),
+                        ).animate().fadeIn(
+                              duration: 250.ms,
+                              delay: Duration(
+                                  milliseconds: (index * 30).clamp(0, 300)),
+                            ),
+                      ],
+                    );
+                  },
+                );
+              },
+              loading: () => const ShimmerChatList(),
+              error: (err, stack) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.cloud_off_rounded,
+                          color: AuraColors.error,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Không thể kết nối đến máy chủ tin nhắn.\nVui lòng kiểm tra kết nối mạng hoặc thử lại.',
+                          textAlign: TextAlign.center,
+                          style: AuraTypography.bodyMedium.copyWith(
+                            color: AuraColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ref.invalidate(chatMessagesStreamProvider(
+                                widget.conversationId));
+                          },
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Thử lại'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AuraColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
 
           // ── Input ──
@@ -921,15 +966,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           height: 0.5,
           color: AuraColors.surfaceBorder,
         ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingState() {
-    return Center(
-      child: CircularProgressIndicator(
-        color: AuraColors.primary,
-        strokeWidth: 2,
       ),
     );
   }
